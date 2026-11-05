@@ -272,23 +272,24 @@ fun ViewerScreen(vm: GalleryViewModel, startIndex: Int, onBack: () -> Unit, onEd
                     Text(DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(current.dateTaken)), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     Text("${pager.currentPage + 1} of ${items.size}", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
                 }
+                IconButton(onClick = { info = current }) { Icon(Icons.Outlined.Info, "Details", tint = Color.White) }
             }
             Row(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color.Black.copy(alpha = 0.5f))
                     .navigationBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // Two equal halves around Edit keep it exactly in the centre of the screen.
-                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                // Share | Edit | Delete in equal halves: Edit sits exactly in the centre and the
+                // two side buttons mirror each other. Details lives in the top bar.
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     ViewerAction(Icons.Outlined.Share, "Share") { share(ctx, listOf(current)) }
-                    ViewerAction(Icons.Outlined.Info, "Details") { info = current }
                 }
                 FilledTonalButton(onClick = { onEdit(current.uri) }, contentPadding = PaddingValues(horizontal = 22.dp, vertical = 12.dp)) {
                     Icon(Icons.Rounded.Edit, null, Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("Edit")
                 }
-                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     ViewerAction(Icons.Outlined.Delete, "Delete") { confirm = current }
                 }
             }

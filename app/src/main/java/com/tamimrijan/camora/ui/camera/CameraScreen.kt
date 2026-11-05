@@ -82,6 +82,9 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInParent
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -143,6 +146,8 @@ fun CameraScreen(
 
     // Frozen, blurred frame shown while the camera re-binds (mode/lens switch).
     var transitionFrame by remember { mutableStateOf<Bitmap?>(null) }
+    // Where the zoom buttons sit inside the viewfinder, so taps on them don't move focus.
+    var zoomBarRect by remember { mutableStateOf(Rect.Zero) }
     val transitionAlpha = remember { Animatable(0f) }
     LaunchedEffect(req) {
         val r = req ?: return@LaunchedEffect
@@ -151,7 +156,13 @@ fun CameraScreen(
             transitionAlpha.snapTo(1f)
         }
         vm.bind(owner, previewView, r)
-        kotlinx.coroutines.delay(250)
+        // Keep the frozen frame until the new lens is really streaming (the ultra wide can take
+        // a second to open), so the viewfinder never flashes black.
+        kotlinx.coroutines.delay(120)
+        kotlinx.coroutines.withTimeoutOrNull(2500) {
+            while (previewView.previewStreamState.value != PreviewView.StreamState.STREAMING) kotlinx.coroutines.delay(30)
+        }
+        kotlinx.coroutines.delay(120)
         transitionAlpha.animateTo(0f, tween(300))
         transitionFrame = null
     }
@@ -262,6 +273,12 @@ fun CameraScreen(
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val start = down.position
+                        // Touches on the zoom buttons belong to them: never focus or swipe there.
+                        val guard = 10.dp.toPx()
+                        val bar = zoomBarRect
+                        if (bar.width > 0f && start.x in (bar.left - guard)..(bar.right + guard) && start.y in (bar.top - guard)..(bar.bottom + guard)) {
+                            return@awaitEachGesture
+                        }
                         val t0 = down.uptimeMillis
                         var moved = false
                         var pinch = false
@@ -349,7 +366,8 @@ fun CameraScreen(
                 if (ui.mode == CameraMode.PORTRAIT && cs.faces == 0) Pill("Portrait works best with a person in frame")
             }
             Box(
-                Modifier.align(Alignment.BottomCenter).padding(bottom = if (overlayControls) bottomReserve + 8.dp else 14.dp),
+                Modifier.align(Alignment.BottomCenter).padding(bottom = if (overlayControls) bottomReserve + 8.dp else 14.dp)
+                    .onGloballyPositioned { zoomBarRect = it.boundsInParent() },
             ) {
                 if (!ui.front && ui.mode != CameraMode.PRO) {
                     val presets = buildList {

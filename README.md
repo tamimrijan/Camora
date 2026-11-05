@@ -81,7 +81,7 @@ The preview and the photo share **the same decisions and the same 33³ colour LU
 
 ## 📲 Install
 
-1. Download `Camora-2.1.2.apk` from **[Releases](../../releases/latest)**.
+1. Download `Camora-2.1.3.apk` from **[Releases](../../releases/latest)**.
 2. Open it on your phone and allow *Install unknown apps* when asked.
 3. Grant the camera permission. That's the only one Camora asks for.
 
