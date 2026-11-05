@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Camora logo: rounded tile with a lens-blue to navy diagonal gradient, a light-blue
+     lens and a navy pupil. Used in the About page, the welcome screen and (split into
+     background/foreground layers) as the launcher icon. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="84dp"
+    android:height="84dp"
+    android:viewportWidth="84"
+    android:viewportHeight="84">
+    <path android:pathData="M26,0 H58 A26,26 0 0 1 84,26 V58 A26,26 0 0 1 58,84 H26 A26,26 0 0 1 0,58 V26 A26,26 0 0 1 26,0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="0"
+                android:endX="84"
+                android:endY="84"
+                android:startColor="#FF1B5FC7"
+                android:endColor="#FF0B1E44" />
+        </aapt:attr>
+    </path>
+    <path
+        android:fillColor="#FF9CC2FF"
+        android:pathData="M42,19 A23,23 0 1 1 41.99,19 Z" />
+    <path
+        android:fillColor="#FF0B1E44"
+        android:pathData="M42,31 A11,11 0 1 1 41.99,31 Z" />
+</vector>

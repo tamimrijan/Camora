@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher foreground: the camora_logo lens scaled by 72/84 onto the 108dp canvas
+     (lens radius 23 -> 19.71, pupil radius 11 -> 9.43, centred at 54,54). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FF9CC2FF"
+        android:pathData="M54,34.29 A19.71,19.71 0 1 1 53.99,34.29 Z" />
+    <path
+        android:fillColor="#FF0B1E44"
+        android:pathData="M54,44.57 A9.43,9.43 0 1 1 53.99,44.57 Z" />
+</vector>
