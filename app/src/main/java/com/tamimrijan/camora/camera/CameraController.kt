@@ -71,6 +71,11 @@ class CameraController(private val context: Context, val previewProcessor: Natur
     private var manual = ManualSettings()
     private var mode = CameraMode.PHOTO
     private var faceMetering = true
+    private var front = false
+
+    // The user's flash choice. Every bind creates a new ImageCapture (lens switch, mode or
+    // setting change), so it is applied in the builder and again right before each shot.
+    private var flash = FlashSetting.OFF
 
     // face-priority metering state
     private var userMeteringUntil = 0L
@@ -86,6 +91,7 @@ class CameraController(private val context: Context, val previewProcessor: Natur
         camera = null
         mode = req.mode
         faceMetering = req.faceMetering
+        front = req.front
         manual = ManualSettings()
 
         val lenses = CameraCapabilities.lenses(context)
@@ -185,6 +191,7 @@ class CameraController(private val context: Context, val previewProcessor: Natur
         val icb = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
             .setJpegQuality(98)
+            .setFlashMode(cameraXFlash())
             .setResolutionSelector(sizeSel.build())
             .setTargetRotation(targetRotation)
         if (l?.hasOis == true) Camera2Interop.Extender(icb).setCaptureRequestOption(
@@ -253,11 +260,15 @@ class CameraController(private val context: Context, val previewProcessor: Natur
     }
 
     fun setFlash(f: FlashSetting) {
-        imageCapture?.flashMode = when (f) {
-            FlashSetting.OFF -> ImageCapture.FLASH_MODE_OFF
-            FlashSetting.AUTO -> ImageCapture.FLASH_MODE_AUTO
-            FlashSetting.ON -> ImageCapture.FLASH_MODE_ON
-        }
+        flash = f
+        imageCapture?.flashMode = cameraXFlash()
+    }
+
+    /** The front camera has no LED: its "flash" is the screen light handled by the UI. */
+    private fun cameraXFlash(): Int = if (front) ImageCapture.FLASH_MODE_OFF else when (flash) {
+        FlashSetting.OFF -> ImageCapture.FLASH_MODE_OFF
+        FlashSetting.AUTO -> ImageCapture.FLASH_MODE_AUTO
+        FlashSetting.ON -> ImageCapture.FLASH_MODE_ON
     }
 
     /** Tap to focus/expose. [lock] = long-press AE/AF lock (no auto-cancel). */
@@ -345,8 +356,15 @@ class CameraController(private val context: Context, val previewProcessor: Natur
      * stops (HDR bursts are shot at -1 EV to protect highlights). Bursts lock AE/AWB so all
      * frames match, which the merger relies on.
      */
-    suspend fun capture(count: Int, evOffset: Float = 0f, onFrame: (Int) -> Unit = {}): List<CapturedFrame> {
+    suspend fun capture(
+        count: Int,
+        evOffset: Float = 0f,
+        onShutter: () -> Unit = {},
+        onFrame: (Int) -> Unit = {},
+    ): List<CapturedFrame> {
         val ic = imageCapture ?: error("Camera not ready")
+        // Bursts are shot without flash (each frame would need its own precapture).
+        ic.flashMode = if (count > 1) ImageCapture.FLASH_MODE_OFF else cameraXFlash()
         val cam = camera ?: error("Camera not ready")
         val s = _state.value
         val originalEv = s.evIndex
@@ -370,8 +388,13 @@ class CameraController(private val context: Context, val previewProcessor: Natur
                 ).awaitResult()
             }
             val frames = ArrayList<CapturedFrame>(count)
+            // The shutter sound and blink follow the real exposure: with flash the camera first
+            // runs a pre-flash metering step, and the photo is taken only after it.
+            val fired = java.util.concurrent.atomic.AtomicBoolean(false)
+            val shutter = { if (fired.compareAndSet(false, true)) onShutter() }
             repeat(count) { i ->
-                frames += takeOne(ic)
+                frames += takeOne(ic, if (i == 0) shutter else ({}))
+                shutter() // fallback if the HAL never reported the capture start
                 onFrame(i + 1)
             }
             return frames
@@ -385,11 +408,14 @@ class CameraController(private val context: Context, val previewProcessor: Natur
                 )
             }
             if (changedEv) cam.cameraControl.setExposureCompensationIndex(originalEv)
+            ic.flashMode = cameraXFlash()
         }
     }
 
-    private suspend fun takeOne(ic: ImageCapture): CapturedFrame = suspendCancellableCoroutine { cont ->
+    private suspend fun takeOne(ic: ImageCapture, onStarted: () -> Unit): CapturedFrame = suspendCancellableCoroutine { cont ->
         ic.takePicture(cameraExecutor, object : ImageCapture.OnImageCapturedCallback() {
+            override fun onCaptureStarted() = onStarted()
+
             override fun onCaptureSuccess(image: ImageProxy) {
                 try {
                     val buf = image.planes[0].buffer

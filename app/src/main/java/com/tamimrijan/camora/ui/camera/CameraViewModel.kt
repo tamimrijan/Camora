@@ -156,8 +156,7 @@ class CameraViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         viewModelScope.launch {
-            combine(settings.map { it.flash }.distinctUntilChanged(), cameraState.map { it.bound }.distinctUntilChanged()) { f, b -> f to b }
-                .collect { (f, bound) -> if (bound) controller.setFlash(if (_ui.value.front) FlashSetting.OFF else f) }
+            settings.map { it.flash }.distinctUntilChanged().collect { controller.setFlash(it) }
         }
         refreshThumb()
     }
@@ -302,9 +301,17 @@ class CameraViewModel(app: Application) : AndroidViewModel(app) {
                     delay(700) // let AE settle on the screen light
                 }
                 val (frames, ev) = plan(u, s)
-                if (s.shutterSound || (Build.VERSION.SDK_INT >= 33 && MediaActionSound.mustPlayShutterSound())) sound.play(MediaActionSound.SHUTTER_CLICK)
-                _ui.update { it.copy(shutterFlash = System.nanoTime(), burst = if (frames > 1) 0 to frames else null) }
-                val captured = controller.capture(frames, ev) { n -> if (frames > 1) _ui.update { it.copy(burst = n to frames) } }
+                val playSound = s.shutterSound || (Build.VERSION.SDK_INT >= 33 && MediaActionSound.mustPlayShutterSound())
+                if (frames > 1) _ui.update { it.copy(burst = 0 to frames) }
+                val captured = controller.capture(
+                    frames, ev,
+                    // Called the moment the sensor exposes (after the pre-flash when flash fires),
+                    // so the click, the flash and the screen blink happen together.
+                    onShutter = {
+                        if (playSound) sound.play(MediaActionSound.SHUTTER_CLICK)
+                        _ui.update { it.copy(shutterFlash = System.nanoTime()) }
+                    },
+                ) { n -> if (frames > 1) _ui.update { it.copy(burst = n to frames) } }
                 val job = CaptureJob(
                     id = System.currentTimeMillis(),
                     frames = captured,
