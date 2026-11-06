@@ -4,6 +4,15 @@ import android.app.Application
 import android.content.Intent
 import android.content.IntentSender
 import android.net.Uri
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.draw.clipToBounds
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlin.math.abs
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,7 +24,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -79,7 +87,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -151,6 +158,10 @@ fun GalleryScreen(vm: GalleryViewModel, onBack: () -> Unit, onOpen: (Int) -> Uni
     var confirm by remember { mutableStateOf(false) }
     val deleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { vm.refresh() }
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
+    // System back leaves selection mode first instead of closing the gallery.
+    BackHandler(enabled = selected.isNotEmpty()) { selected.clear() }
+    // Drop selections of photos that no longer exist (deleted here or in another app).
+    LaunchedEffect(items) { val ids = items.mapTo(HashSet()) { it.id }; selected.retainAll { it in ids } }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
@@ -160,7 +171,7 @@ fun GalleryScreen(vm: GalleryViewModel, onBack: () -> Unit, onOpen: (Int) -> Uni
                     Column {
                         Text(if (selected.isEmpty()) "Gallery" else "${selected.size} selected")
                         if (selected.isEmpty() && items.isNotEmpty()) Text(
-                            "${items.size} photos", style = MaterialTheme.typography.labelMedium,
+                            "${items.size} photo${if (items.size == 1) "" else "s"}", style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -242,6 +253,9 @@ fun GalleryScreen(vm: GalleryViewModel, onBack: () -> Unit, onOpen: (Int) -> Uni
 fun ViewerScreen(vm: GalleryViewModel, startIndex: Int, onBack: () -> Unit, onEdit: (Uri) -> Unit) {
     val items by vm.items.collectAsStateWithLifecycle()
     val loaded by vm.loaded.collectAsStateWithLifecycle()
+    // Leave the viewer once the last photo is gone (only after the delete really happened,
+    // so cancelling the system delete dialog keeps you here).
+    LaunchedEffect(loaded, items.isEmpty()) { if (loaded && items.isEmpty()) onBack() }
     if (items.isEmpty()) {
         Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
             if (loaded) Text("No photos", color = Color.White)
@@ -256,10 +270,24 @@ fun ViewerScreen(vm: GalleryViewModel, startIndex: Int, onBack: () -> Unit, onEd
     var chromeVisible by remember { mutableStateOf(true) }
     val deleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { vm.refresh() }
 
+    // Stay on the same photo when the list changes (a new edit or photo is added in front).
+    var currentId by remember { mutableStateOf(items.getOrNull(pager.currentPage)?.id) }
+    LaunchedEffect(pager.currentPage) { currentId = items.getOrNull(pager.currentPage)?.id }
+    LaunchedEffect(items) {
+        val idx = items.indexOfFirst { it.id == currentId }
+        if (idx >= 0 && idx != pager.currentPage) pager.scrollToPage(idx)
+    }
+
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1, key = { items.getOrNull(it)?.id ?: it.toLong() }) { page ->
             val item = items.getOrNull(page) ?: return@HorizontalPager
-            ZoomablePhoto(item.uri) { chromeVisible = !chromeVisible }
+            ZoomablePhoto(
+                uri = item.uri,
+                active = page == pager.currentPage,
+                onTap = { chromeVisible = !chromeVisible },
+                onSwipeUp = { info = item },
+                onSwipeDown = onBack,
+            )
         }
         val current = items.getOrNull(pager.currentPage)
         if (chromeVisible && current != null) {
@@ -306,14 +334,12 @@ fun ViewerScreen(vm: GalleryViewModel, startIndex: Int, onBack: () -> Unit, onEd
                 TextButton(onClick = {
                     confirm = null
                     scope.launch { vm.delete(listOf(item))?.let { deleteLauncher.launch(IntentSenderRequest.Builder(it).build()) } }
-                    if (items.size <= 1) onBack()
                 }) { Text("Delete") }
             },
             dismissButton = { TextButton(onClick = { confirm = null }) { Text("Cancel") } },
         )
     }
 }
-
 @Composable
 private fun ViewerAction(icon: ImageVector, label: String, onClick: () -> Unit) {
     Column(
@@ -363,28 +389,145 @@ private fun InfoSheet(item: MediaItem) {
     }
 }
 
+/**
+ * One photo page. A single gesture handler does everything, so nothing fights over touches:
+ * tap shows/hides the bars, double tap zooms in or out at the finger, pinch zooms around the
+ * fingers, drag pans while zoomed (clamped to the photo), swipe up opens Details, swipe down
+ * closes the viewer. Horizontal swipes at 1x (or at the edge of a zoomed photo) go to the pager.
+ */
 @Composable
-private fun ZoomablePhoto(uri: Uri, onTap: () -> Unit) {
+private fun ZoomablePhoto(uri: Uri, active: Boolean, onTap: () -> Unit, onSwipeUp: () -> Unit, onSwipeDown: () -> Unit) {
     val bmp by rememberDecoded(uri, 2560)
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
+    val ui = rememberCoroutineScope()
+    var anim by remember { mutableStateOf<Job?>(null) }
+    // Swiping to another photo resets this one.
+    LaunchedEffect(active) { if (!active) { anim?.cancel(); scale = 1f; offset = Offset.Zero } }
+    val tap by rememberUpdatedState(onTap)
+    val up by rememberUpdatedState(onSwipeUp)
+    val down by rememberUpdatedState(onSwipeDown)
+    val imgW = bmp?.width ?: 0
+    val imgH = bmp?.height ?: 0
+    val imgSize by rememberUpdatedState(imgW to imgH)
+
     Box(
         Modifier
             .fillMaxSize()
+            .clipToBounds()
             .pointerInput(Unit) {
-                detectTapGestures(
-                    onTap = { onTap() },
-                    onDoubleTap = { p ->
-                        if (scale > 1.1f) { scale = 1f; offset = Offset.Zero } else {
-                            scale = 2.5f; offset = Offset((size.width / 2f - p.x) * 1.5f, (size.height / 2f - p.y) * 1.5f)
+                val slop = viewConfiguration.touchSlop
+                val doubleTapMs = viewConfiguration.doubleTapTimeoutMillis
+                val swipePx = 90.dp.toPx()
+                var lastTapAt = 0L
+                var lastTapPos = Offset.Zero
+                var pendingTap: Job? = null
+
+                // How far the zoomed photo may move before its edge leaves the screen edge.
+                fun clamp(o: Offset, s: Float): Offset {
+                    val (iw, ih) = imgSize
+                    val bw = size.width.toFloat()
+                    val bh = size.height.toFloat()
+                    val fit = if (iw > 0 && ih > 0) minOf(bw / iw, bh / ih) else 1f
+                    val cw = if (iw > 0) iw * fit else bw
+                    val ch = if (ih > 0) ih * fit else bh
+                    val mx = ((cw * s - bw) / 2f).coerceAtLeast(0f)
+                    val my = ((ch * s - bh) / 2f).coerceAtLeast(0f)
+                    return Offset(o.x.coerceIn(-mx, mx), o.y.coerceIn(-my, my))
+                }
+
+                fun animateTo(s: Float, o: Offset) {
+                    anim?.cancel()
+                    val s0 = scale
+                    val o0 = offset
+                    anim = ui.launch {
+                        animate(0f, 1f, animationSpec = tween(220)) { v, _ ->
+                            scale = s0 + (s - s0) * v
+                            offset = o0 + (o - o0) * v
                         }
-                    },
-                )
-            }
-            .pointerInput(Unit) {
-                transformWhenZoomed(getScale = { scale }) { pan, zoom ->
-                    scale = (scale * zoom).coerceIn(1f, 6f)
-                    offset = if (scale <= 1.01f) Offset.Zero else offset + pan
+                    }
+                }
+
+                awaitEachGesture {
+                    val first = awaitFirstDown(requireUnconsumed = false)
+                    anim?.cancel()
+                    val start = first.position
+                    var moved = false
+                    var multi = false
+                    var vertical = false
+                    var total = Offset.Zero
+                    var upTime = first.uptimeMillis
+                    while (true) {
+                        val e = awaitPointerEvent()
+                        val pressed = e.changes.filter { it.pressed }
+                        if (pressed.isEmpty()) {
+                            upTime = e.changes.firstOrNull()?.uptimeMillis ?: upTime
+                            break
+                        }
+                        if (pressed.size >= 2) {
+                            multi = true
+                            val a = pressed[0]
+                            val b = pressed[1]
+                            val prev = (a.previousPosition - b.previousPosition).getDistance()
+                            val cur = (a.position - b.position).getDistance()
+                            val zoom = if (prev > 0f) cur / prev else 1f
+                            val prevC = (a.previousPosition + b.previousPosition) / 2f
+                            val curC = (a.position + b.position) / 2f
+                            val newScale = (scale * zoom).coerceIn(1f, 6f)
+                            val k = newScale / scale
+                            // Keep the spot between the fingers under the fingers while zooming.
+                            val rel = prevC - Offset(size.width / 2f, size.height / 2f)
+                            val o = (offset - rel) * k + rel + (curC - prevC)
+                            scale = newScale
+                            offset = if (newScale <= 1.01f) Offset.Zero else clamp(o, newScale)
+                            e.changes.forEach { it.consume() }
+                            continue
+                        }
+                        if (multi) continue
+                        val c = pressed[0]
+                        total = c.position - start
+                        if (!moved && total.getDistance() > slop) {
+                            moved = true
+                            vertical = abs(total.y) > abs(total.x)
+                        }
+                        if (!moved) continue
+                        val d = c.position - c.previousPosition
+                        if (scale > 1.01f) {
+                            val next = clamp(offset + d, scale)
+                            // Pinned at a left/right edge and swiping sideways: let the pager
+                            // move to the next photo instead.
+                            val atEdge = abs(next.x - offset.x) < 0.5f && abs(d.x) > abs(d.y)
+                            if (!atEdge) {
+                                offset = next
+                                c.consume()
+                            }
+                        } else if (vertical) {
+                            c.consume()
+                        }
+                    }
+                    if (multi) return@awaitEachGesture
+                    if (!moved) {
+                        // Tap or double tap.
+                        if (pendingTap?.isActive == true && upTime - lastTapAt < doubleTapMs && (start - lastTapPos).getDistance() < 60.dp.toPx()) {
+                            pendingTap?.cancel()
+                            lastTapAt = 0L
+                            if (scale > 1.1f) animateTo(1f, Offset.Zero)
+                            else {
+                                val target = 2.5f
+                                val center = Offset(size.width / 2f, size.height / 2f)
+                                animateTo(target, clamp((center - start) * (target - 1f), target))
+                            }
+                        } else {
+                            lastTapAt = upTime
+                            lastTapPos = start
+                            pendingTap = ui.launch {
+                                delay(doubleTapMs)
+                                tap()
+                            }
+                        }
+                    } else if (scale <= 1.01f && vertical) {
+                        if (total.y < -swipePx) up() else if (total.y > swipePx) down()
+                    }
                 }
             },
         contentAlignment = Alignment.Center,
@@ -397,33 +540,6 @@ private fun ZoomablePhoto(uri: Uri, onTap: () -> Unit) {
         }
     }
 }
-
-/** Pinch always zooms; one-finger drags only pan when zoomed in (so the pager can swipe at 1x). */
-private suspend fun PointerInputScope.transformWhenZoomed(getScale: () -> Float, onTransform: (Offset, Float) -> Unit) {
-    awaitEachGesture {
-        awaitFirstDown(requireUnconsumed = false)
-        while (true) {
-            val e = awaitPointerEvent()
-            val pressed = e.changes.filter { it.pressed }
-            if (pressed.isEmpty()) break
-            if (pressed.size >= 2) {
-                val a = pressed[0]
-                val b = pressed[1]
-                val prev = (a.previousPosition - b.previousPosition).getDistance()
-                val cur = (a.position - b.position).getDistance()
-                val zoom = if (prev > 0f) cur / prev else 1f
-                val pan = ((a.position + b.position) - (a.previousPosition + b.previousPosition)) / 2f
-                onTransform(pan, zoom)
-                e.changes.forEach { it.consume() }
-            } else if (getScale() > 1.01f) {
-                val c = pressed[0]
-                onTransform(c.position - c.previousPosition, 1f)
-                c.consume()
-            }
-        }
-    }
-}
-
 /** EXIF text is ASCII only, so items are stored with commas (older photos have " ? "). Show them as a clean list. */
 private fun processingText(raw: String): String =
     raw.split(", ", " ? ").map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n")

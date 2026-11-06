@@ -345,7 +345,8 @@ private fun LazyListScope.aboutTab(ctx: Context) {
         Group("Built with") {
             ListItem(
                 leadingContent = { Icon(Icons.Rounded.Tune, null, tint = MaterialTheme.colorScheme.primary) },
-                headlineContent = { Text("Kotlin · Jetpack Compose · Material 3") },
+                // Non-breaking spaces keep each name whole ("Material 3" never splits); a line can only break after a dot.
+                headlineContent = { Text("Kotlin\u00A0· Jetpack\u00A0Compose\u00A0· Material\u00A03") },
                 supportingContent = { Text("CameraX with Camera2 controls, an OpenGL ES live preview, ML Kit face detection that runs on the phone, and the Camora Natural image engine.") },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             )
