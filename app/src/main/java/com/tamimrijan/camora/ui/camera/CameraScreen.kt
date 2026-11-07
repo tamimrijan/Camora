@@ -201,6 +201,25 @@ fun CameraScreen(
     LaunchedEffect(Unit) { shutterKeys.collect { vm.onShutter() } }
     LaunchedEffect(Unit) { vm.refreshThumb() }
 
+    // Watchdog: the camera is running with the live look, but no frame has reached the screen
+    // for 3 seconds (black viewfinder). Rebind, and fall back to the plain preview if needed.
+    LaunchedEffect(owner) {
+        var since = 0L
+        while (true) {
+            kotlinx.coroutines.delay(1000)
+            val now = android.os.SystemClock.elapsedRealtime()
+            val st = vm.cameraState.value
+            val watching = owner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) &&
+                st.bound && st.naturalPreviewActive
+            if (!watching) { since = 0L; continue }
+            if (since == 0L) { since = now; continue }
+            if (now - since > 3000 && now - vm.processor.lastDrawMs > 3000) {
+                vm.onPreviewStalled()
+                since = 0L
+            }
+        }
+    }
+
     // Screen flash (front camera): full brightness, warm white.
     val activity = ctx as? Activity
     val flashOn = ui.screenFlash
@@ -261,6 +280,15 @@ fun CameraScreen(
             vfTop = (maxHeight - vfH) / 2
         }
         val overlayControls = !docked
+        // How much of the viewfinder is covered by the top bar / bottom controls, measured on
+        // the real screen. Overlays inside the viewfinder (zoom bar, pills, histogram) sit just
+        // clear of the controls on every phone shape, instead of at a fixed gap from the
+        // viewfinder edge (which floated them to the middle on phones where it is centred).
+        val vfBottom = vfTop + vfH
+        val coveredBottom = (vfBottom - (maxHeight - bottomReserve)).coerceAtLeast(0.dp)
+        val coveredTop = (topReserve - vfTop).coerceAtLeast(0.dp)
+        val zoomBarPad = if (coveredBottom > 0.dp) coveredBottom + 10.dp else 14.dp
+        val topOverlayPad = if (coveredTop > 0.dp) coveredTop + 8.dp else 12.dp
         val shutterSize = if (maxWidth < 360.dp) 70.dp else 78.dp
 
         Box(
@@ -356,7 +384,7 @@ fun CameraScreen(
                 FocusIndicator(p.x, p.y, (cs.evIndex - cs.evMin).toFloat() / range, focusKey)
             }
             Column(
-                Modifier.align(Alignment.TopCenter).padding(top = if (docked) 12.dp else topReserve + 8.dp),
+                Modifier.align(Alignment.TopCenter).padding(top = topOverlayPad),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
@@ -366,7 +394,7 @@ fun CameraScreen(
                 if (ui.mode == CameraMode.PORTRAIT && cs.faces == 0) Pill("Portrait works best with a person in frame")
             }
             Box(
-                Modifier.align(Alignment.BottomCenter).padding(bottom = if (overlayControls) bottomReserve + 8.dp else 14.dp)
+                Modifier.align(Alignment.BottomCenter).padding(bottom = zoomBarPad)
                     .onGloballyPositioned { zoomBarRect = it.boundsInParent() },
             ) {
                 if (!ui.front && ui.mode != CameraMode.PRO) {
@@ -378,7 +406,7 @@ fun CameraScreen(
                     ZoomChips(presets, cs.zoomRatio, cs.usingUltraWide, rot) { vm.zoomPreset(it) }
                 }
             }
-            if (ui.mode == CameraMode.PRO) ProHistogram(vm, Modifier.align(Alignment.TopEnd).padding(top = if (docked) 10.dp else topReserve + 6.dp, end = 10.dp))
+            if (ui.mode == CameraMode.PRO) ProHistogram(vm, Modifier.align(Alignment.TopEnd).padding(top = topOverlayPad - 2.dp, end = 10.dp))
             if (blink.value > 0f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = blink.value)))
         }
 

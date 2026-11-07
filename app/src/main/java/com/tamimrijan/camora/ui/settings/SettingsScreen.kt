@@ -8,6 +8,10 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -217,7 +221,7 @@ private fun LazyListScope.lookTab(s: AppSettings, set: ((AppSettings) -> AppSett
                 set { it.copy(profile = ColorProfileId.entries[i]) }
             }
             Divider()
-            SliderRow("Intensity", s.profileIntensity, "${(s.profileIntensity * 100).toInt()}%") { v -> set { it.copy(profileIntensity = v) } }
+            SliderRow("Intensity", s.profileIntensity, { v -> "${(v * 100).toInt()}%" }) { v -> set { it.copy(profileIntensity = v) } }
             Divider()
             Toggle("Live preview of the look", "Shows colour and HDR in the viewfinder exactly as they will be saved", s.naturalPreview) { v -> set { it.copy(naturalPreview = v) } }
         }
@@ -248,11 +252,11 @@ private fun LazyListScope.lookTab(s: AppSettings, set: ((AppSettings) -> AppSett
 private fun LazyListScope.portraitTab(s: AppSettings, set: ((AppSettings) -> AppSettings) -> Unit) {
     item {
         Group("Skin (Selfie & Portrait)") {
-            SliderRow("Skin smoothing", s.beautySmoothing, if (s.beautySmoothing == 0f) "Off" else "${(s.beautySmoothing * 100).toInt()}") { v -> set { it.copy(beautySmoothing = v) } }
+            SliderRow("Skin smoothing", s.beautySmoothing, { v -> if (v == 0f) "Off" else "${(v * 100).toInt()}" }) { v -> set { it.copy(beautySmoothing = v) } }
             Divider()
-            SliderRow("Even skin tone", s.beautyEvenTone, if (s.beautyEvenTone == 0f) "Off" else "${(s.beautyEvenTone * 100).toInt()}") { v -> set { it.copy(beautyEvenTone = v) } }
+            SliderRow("Even skin tone", s.beautyEvenTone, { v -> if (v == 0f) "Off" else "${(v * 100).toInt()}" }) { v -> set { it.copy(beautyEvenTone = v) } }
             Divider()
-            SliderRow("Face lighting", s.faceLight, "${(s.faceLight * 100).toInt()}") { v -> set { it.copy(faceLight = v) } }
+            SliderRow("Face lighting", s.faceLight, { v -> "${(v * 100).toInt()}" }) { v -> set { it.copy(faceLight = v) } }
             Text(
                 "Pores and texture are always kept; eyes, brows, lips and hair are never smoothed.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -262,7 +266,7 @@ private fun LazyListScope.portraitTab(s: AppSettings, set: ((AppSettings) -> App
     }
     item {
         Group("Portrait") {
-            SliderRow("Background blur", s.portraitBlur, "f/%.1f".format(blurToAperture(s.portraitBlur))) { v -> set { it.copy(portraitBlur = v) } }
+            SliderRow("Background blur", s.portraitBlur, { v -> "f/%.1f".format(blurToAperture(v)) }) { v -> set { it.copy(portraitBlur = v) } }
         }
     }
 }
@@ -293,73 +297,187 @@ private fun LazyListScope.appTab(s: AppSettings, set: ((AppSettings) -> AppSetti
 }
 
 private fun LazyListScope.aboutTab(ctx: Context) {
+    item { AboutHero() }
     item {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-            shape = RoundedCornerShape(28.dp),
+        // Three short promises; one word each so the tiles never wrap.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            AboutPillar(Icons.Rounded.Palette, "Natural", "True colour", Modifier.weight(1f))
+            AboutPillar(Icons.Rounded.CameraAlt, "Live", "Real time look", Modifier.weight(1f))
+            AboutPillar(Icons.Rounded.Lock, "Private", "No internet", Modifier.weight(1f))
+        }
+    }
+    item { AboutCreator(ctx) }
+    item { AboutTech() }
+    item {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer), shape = RoundedCornerShape(24.dp)) {
+            AboutLink(Icons.Rounded.Share, "Share Camora", "Send the project link to a friend") {
+                val send = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, "Camora, a natural camera app for Android by ${CamoraApp.DEVELOPER}: ${CamoraApp.GITHUB}/Camora")
+                }
+                runCatching { ctx.startActivity(Intent.createChooser(send, "Share Camora").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            }
+        }
+    }
+    item {
+        Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                "Made with care for natural photography",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                "© 2026 ${CamoraApp.DEVELOPER}",
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            )
+        }
+    }
+}
+
+/** Big, calm header: logo on a soft glow, name, one line promise, version pill. */
+@Composable
+private fun AboutHero() {
+    val cs = MaterialTheme.colorScheme
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(32.dp))
+            .background(Brush.verticalGradient(listOf(cs.primaryContainer, cs.surfaceContainer))),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Image(painterResource(R.drawable.camora_logo), "Camora logo", Modifier.size(84.dp))
-                Spacer(Modifier.height(14.dp))
-                Text("Camora", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                Text("Version ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f))
-                Spacer(Modifier.height(10.dp))
+            Box(
+                Modifier.size(124.dp).clip(CircleShape)
+                    .background(Brush.radialGradient(listOf(cs.primary.copy(alpha = 0.28f), Color.Transparent))),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(painterResource(R.drawable.camora_logo), "Camora logo", Modifier.size(92.dp))
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "Camora", color = cs.onSurface, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.headlineLarge, letterSpacing = 0.5.sp,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Natural photos, developed on your phone.",
+                style = MaterialTheme.typography.bodyLarge, color = cs.onSurfaceVariant, textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(16.dp))
+            Box(
+                Modifier.clip(CircleShape).background(cs.surface.copy(alpha = 0.7f))
+                    .border(1.dp, cs.outlineVariant, CircleShape)
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+            ) {
                 Text(
-                    "Natural, true to life photos with soft highlights, balanced exposure and real skin texture, developed on your phone by Camora's own image engine.",
-                    style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    "Version ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelLarge,
+                    color = cs.onSurface, maxLines = 1, softWrap = false,
                 )
             }
         }
     }
-    item {
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer), shape = RoundedCornerShape(28.dp)) {
-            Column(Modifier.fillMaxWidth().padding(20.dp)) {
-                Text("MADE BY", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, letterSpacing = 1.5.sp)
-                Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier.size(56.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiaryContainer),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("TR", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = MaterialTheme.colorScheme.onTertiaryContainer)
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Column {
-                        Text(CamoraApp.DEVELOPER, style = MaterialTheme.typography.titleLarge)
-                        Text("Designer & developer of Camora", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                Spacer(Modifier.height(18.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    FilledTonalButton(onClick = { openLink(ctx, CamoraApp.GITHUB) }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Rounded.Code, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("GitHub")
-                    }
-                    FilledTonalButton(onClick = { openLink(ctx, CamoraApp.INSTAGRAM) }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Rounded.PhotoCamera, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Instagram")
-                    }
-                }
-            }
+}
+
+@Composable
+private fun AboutPillar(icon: ImageVector, title: String, caption: String, modifier: Modifier) {
+    val cs = MaterialTheme.colorScheme
+    Column(
+        modifier.clip(RoundedCornerShape(22.dp)).background(cs.surfaceContainer).padding(vertical = 16.dp, horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(Modifier.size(40.dp).clip(CircleShape).background(cs.secondaryContainer), contentAlignment = Alignment.Center) {
+            Icon(icon, null, Modifier.size(20.dp), tint = cs.onSecondaryContainer)
         }
-    }
-    item {
-        Group("Built with") {
-            ListItem(
-                leadingContent = { Icon(Icons.Rounded.Tune, null, tint = MaterialTheme.colorScheme.primary) },
-                // Non-breaking spaces keep each name whole ("Material 3" never splits); a line can only break after a dot.
-                headlineContent = { Text("Kotlin\u00A0· Jetpack\u00A0Compose\u00A0· Material\u00A03") },
-                supportingContent = { Text("CameraX with Camera2 controls, an OpenGL ES live preview, ML Kit face detection that runs on the phone, and the Camora Natural image engine.") },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            )
-        }
-    }
-    item {
+        Spacer(Modifier.height(10.dp))
+        Text(title, style = MaterialTheme.typography.titleSmall, color = cs.onSurface, maxLines = 1, softWrap = false)
         Text(
-            "© 2026 ${CamoraApp.DEVELOPER}", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
+            caption, style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant,
+            maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
         )
     }
 }
 
+/** Who made it, with the two links as clear rows rather than squeezed buttons. */
+@Composable
+private fun AboutCreator(ctx: Context) {
+    val cs = MaterialTheme.colorScheme
+    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainer), shape = RoundedCornerShape(24.dp)) {
+        Column(Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 6.dp)) {
+            Text(
+                "CREATED BY", style = MaterialTheme.typography.labelMedium, color = cs.primary,
+                letterSpacing = 1.5.sp, modifier = Modifier.padding(horizontal = 20.dp),
+            )
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Initials on a gradient ring.
+                Box(
+                    Modifier.size(64.dp).clip(CircleShape)
+                        .background(Brush.linearGradient(listOf(cs.primary, cs.tertiary)))
+                        .padding(3.dp).clip(CircleShape).background(cs.surfaceContainerHighest),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("TR", fontWeight = FontWeight.Bold, fontSize = 22.sp, color = cs.primary)
+                }
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(CamoraApp.DEVELOPER, style = MaterialTheme.typography.titleLarge, color = cs.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("Designer and developer", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(Modifier.padding(horizontal = 20.dp), color = cs.outlineVariant.copy(alpha = 0.6f))
+            AboutLink(Icons.Rounded.Code, "GitHub", "Source code and releases") { openLink(ctx, CamoraApp.GITHUB) }
+            AboutLink(Icons.Rounded.PhotoCamera, "Instagram", "Follow my work") { openLink(ctx, CamoraApp.INSTAGRAM) }
+        }
+    }
+}
+
+@Composable
+private fun AboutLink(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    ListItem(
+        leadingContent = {
+            Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(cs.primaryContainer), contentAlignment = Alignment.Center) {
+                Icon(icon, null, Modifier.size(20.dp), tint = cs.onPrimaryContainer)
+            }
+        },
+        headlineContent = { Text(title, fontWeight = FontWeight.Medium) },
+        supportingContent = { Text(subtitle) },
+        trailingContent = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, Modifier.size(18.dp), tint = cs.onSurfaceVariant) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.clickable(onClick = onClick).padding(horizontal = 4.dp),
+    )
+}
+
+/** Technology as pills: each name is one unbreakable chip, so nothing ever splits across lines. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AboutTech() {
+    val cs = MaterialTheme.colorScheme
+    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainer), shape = RoundedCornerShape(24.dp)) {
+        Column(Modifier.fillMaxWidth().padding(20.dp)) {
+            Text("BUILT WITH", style = MaterialTheme.typography.labelMedium, color = cs.primary, letterSpacing = 1.5.sp)
+            Spacer(Modifier.height(14.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Kotlin", "Jetpack Compose", "Material 3", "CameraX", "Camera2", "OpenGL ES", "ML Kit", "Natural engine").forEach { name ->
+                    Box(
+                        Modifier.clip(CircleShape).border(1.dp, cs.outlineVariant, CircleShape)
+                            .padding(horizontal = 14.dp, vertical = 7.dp),
+                    ) {
+                        Text(name, style = MaterialTheme.typography.labelLarge, color = cs.onSurface, maxLines = 1, softWrap = false)
+                    }
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            Text(
+                "Faces and portraits are detected on the phone, and every photo is developed by Camora's own image engine.",
+                style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
+            )
+        }
+    }
+}
 private fun openLink(ctx: Context, url: String) {
     try {
         ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -414,13 +532,20 @@ private fun LinkRow(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SliderRow(title: String, value: Float, valueText: String, onChange: (Float) -> Unit) {
+private fun SliderRow(title: String, value: Float, valueText: (Float) -> String, onChange: (Float) -> Unit) {
+    // Follow the finger locally and save once on release: writing settings on every drag
+    // event made these sliders stutter and jump back while the storage caught up.
+    var drag by remember { mutableStateOf<Float?>(null) }
     Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
         Row {
             Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-            Text(valueText, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+            Text(valueText(drag ?: value), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
         }
-        Slider(value, onChange)
+        Slider(
+            value = drag ?: value,
+            onValueChange = { drag = it },
+            onValueChangeFinished = { drag?.let(onChange); drag = null },
+        )
     }
 }
 

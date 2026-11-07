@@ -64,12 +64,16 @@ object ImageLoading {
     }
 }
 
+// The producers do assign value; this lint check misreads suspend calls on the right side.
+@android.annotation.SuppressLint("ProduceStateDoesNotAssignValue")
 @Composable
 fun rememberThumbnail(uri: Uri, px: Int = 320): State<Bitmap?> {
     val ctx = LocalContext.current
     return produceState<Bitmap?>(null, uri) { value = ImageLoading.thumbnail(ctx, uri, px) }
 }
 
+// The producers do assign value; this lint check misreads suspend calls on the right side.
+@android.annotation.SuppressLint("ProduceStateDoesNotAssignValue")
 @Composable
 fun rememberDecoded(uri: Uri?, maxSide: Int): State<Bitmap?> {
     val ctx = LocalContext.current

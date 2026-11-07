@@ -94,6 +94,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -137,6 +139,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private var faces: List<FaceInfo> = emptyList()
     private var facesFor: Pair<Int, Float?>? = null
     private var job: Job? = null
+    /** One render at a time: fast slider drags used to start several full renders in parallel. */
+    private val renderLock = Mutex()
 
     fun load(uri: Uri) {
         if (sourceUri == uri) return
@@ -182,6 +186,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun run(src: Bitmap, e: EditState, preview: Boolean): Pair<Bitmap, EngineReport> = withContext(Dispatchers.Default) {
         val input = transformed(src, e)
+        // Saving: the full size source is no longer needed once rotated/cropped (keeps a 50 MP edit in memory).
+        if (!preview) src.recycle()
         val f = Resample.factorFor(input.width, input.height, NaturalEngine.ANALYSIS_SIDE)
         val buf = BitmapPixelBuffer(input)
         val analysis = Resample.boxDownscale(buf, f)
@@ -212,10 +218,15 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         job?.cancel()
         job = viewModelScope.launch {
             delay(60) // debounce slider drags
-            _busy.value = true
-            val e = _edit.value
-            _preview.value = if (e.isNeutral) src else run(src, e, preview = true).first
-            _busy.value = false
+            renderLock.withLock {
+                _busy.value = true
+                try {
+                    val e = _edit.value
+                    _preview.value = if (e.isNeutral) src else run(src, e, preview = true).first
+                } finally {
+                    _busy.value = false
+                }
+            }
         }
     }
 
@@ -226,8 +237,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             _saving.value = true
             try {
                 val full = ImageLoading.decode(nc, src, 12000, mutable = true) ?: error("cannot read image")
-                val (out, _) = run(full, _edit.value, preview = false)
-                full.recycle()
+                val (out, _) = renderLock.withLock { run(full, _edit.value, preview = false) }
                 val file = File(nc.cacheDir, "edit${System.currentTimeMillis()}.jpg")
                 withContext(Dispatchers.IO) {
                     AndroidImaging.writeJpeg(out, 95, file)
@@ -240,7 +250,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 _saved.value = nc.media.saveFile(file, MediaRepository.newName(" Edit") + ".jpg", "image/jpeg")
                 file.delete()
             } catch (t: Throwable) {
-                _error.value = "Save failed: ${t.message}"
+                _error.value = if (t is OutOfMemoryError) "Save failed: this photo is too large to edit on this phone" else "Save failed: ${t.message ?: t.javaClass.simpleName}"
             } finally {
                 _saving.value = false
             }
@@ -337,10 +347,10 @@ fun EditorScreen(vm: EditorViewModel, uri: Uri, onBack: () -> Unit) {
                         }
                         EditTab.FACE -> {
                             val b = e.beauty
-                            LabeledSlider("Skin smoothing", b.smoothing, 0f..1f, "${(b.smoothing * 100).toInt()}") { v -> vm.update { it.copy(beauty = b.copy(smoothing = v)) } }
-                            LabeledSlider("Even skin tone", b.evenTone, 0f..1f, "${(b.evenTone * 100).toInt()}") { v -> vm.update { it.copy(beauty = b.copy(evenTone = v)) } }
+                            LabeledSlider("Skin smoothing", b.smoothing, 0f..1f, "${(b.smoothing * 100).toInt()}") { v -> vm.update { it.copy(beauty = it.beauty.copy(smoothing = v)) } }
+                            LabeledSlider("Even skin tone", b.evenTone, 0f..1f, "${(b.evenTone * 100).toInt()}") { v -> vm.update { it.copy(beauty = it.beauty.copy(evenTone = v)) } }
                             LabeledSlider("Face lighting", b.faceLight, 0f..1f, "${(b.faceLight * 100).toInt()}") { v ->
-                                vm.update { it.copy(beauty = b.copy(faceLight = v), autoEnhance = it.autoEnhance || v > 0f) }
+                                vm.update { it.copy(beauty = it.beauty.copy(faceLight = v), autoEnhance = it.autoEnhance || v > 0f) }
                             }
                             Text("Only skin is touched; eyes, brows, lips and hair stay sharp.", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
                         }

@@ -37,7 +37,9 @@
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density"
             android:exported="true"
+            android:launchMode="singleTop"
             android:screenOrientation="portrait"
+            android:showWhenLocked="true"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -47,6 +49,33 @@
                 <action android:name="android.media.action.STILL_IMAGE_CAMERA" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <!-- Lock screen camera: opens over the lock screen; the gallery still needs an unlock. -->
+            <intent-filter>
+                <action android:name="android.media.action.STILL_IMAGE_CAMERA_SECURE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- Long press the app icon: Selfie, Portrait, Pro, Gallery. -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- Widgets (home screen, and lock screen where the phone allows it). -->
+        <receiver android:name=".widget.QuickShotWidget" android:exported="false" android:label="@string/widget_quick_label">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_quick_info" />
+        </receiver>
+        <receiver android:name=".widget.SelfieWidget" android:exported="false" android:label="@string/widget_selfie_label">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_selfie_info" />
+        </receiver>
+        <receiver android:name=".widget.ModesWidget" android:exported="false" android:label="@string/widget_modes_label">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_modes_info" />
+        </receiver>
+        <receiver android:name=".widget.LastPhotoWidget" android:exported="false" android:label="@string/widget_last_label">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_last_info" />
+        </receiver>
     </application>
 </manifest>

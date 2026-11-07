@@ -130,7 +130,11 @@ class NaturalPreviewProcessor : SurfaceProcessor {
     private var tone = ToneParams.NEUTRAL
     private var released = false
 
-    private class Out(val egl: EGLSurface, val size: Size)
+    private class Out(val egl: EGLSurface, val size: Size, val surface: Surface)
+
+    /** Last time a frame reached the screen (elapsedRealtime ms); read by the stall watchdog. */
+    @Volatile var lastDrawMs = 0L
+        private set
 
     /** Cached uniform locations. */
     private class MainLoc(p: Int) {
@@ -355,11 +359,21 @@ class NaturalPreviewProcessor : SurfaceProcessor {
                 surfaceOutput.close()
             }
         }
+        // After a quick pause/resume (opening from the lock screen) CameraX can hand over the
+        // same screen surface before the old output was closed. EGL then refuses a second
+        // window surface on it and the viewfinder stayed black. Drop stale outputs first.
+        val stale = outputs.entries.filter { it.value.surface === surface || !it.value.surface.isValid }
+        for ((so, out) in stale) {
+            outputs.remove(so)
+            e.releaseSurface(out.egl)
+            so.close()
+        }
         try {
-            outputs[surfaceOutput] = Out(e.createWindowSurface(surface), surfaceOutput.size)
+            outputs[surfaceOutput] = Out(e.createWindowSurface(surface), surfaceOutput.size, surface)
         } catch (t: Throwable) {
             Log.e(TAG, "cannot create output surface", t)
             surfaceOutput.close()
+            fail(t) // fall back to the plain preview instead of a black screen
         }
     }
 
@@ -461,7 +475,8 @@ class NaturalPreviewProcessor : SurfaceProcessor {
             e.makeCurrent(out.egl)
             GLES30.glViewport(0, 0, out.size.width, out.size.height)
             drawMain(lk)
-            if (!e.swap(out.egl)) Log.w(TAG, "swap failed")
+            if (e.swap(out.egl)) lastDrawMs = android.os.SystemClock.elapsedRealtime()
+            else Log.w(TAG, "swap failed")
         }
     }
 

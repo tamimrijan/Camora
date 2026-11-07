@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_selfie"
+        android:shortcutId="selfie"
+        android:shortcutShortLabel="@string/sc_selfie">
+        <intent
+            android:action="com.tamimrijan.camora.action.LAUNCH"
+            android:targetClass="com.tamimrijan.camora.MainActivity"
+            android:targetPackage="com.tamimrijan.camora">
+            <extra android:name="camora.mode" android:value="SELFIE" />
+        </intent>
+    </shortcut>    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_portrait"
+        android:shortcutId="portrait"
+        android:shortcutShortLabel="@string/sc_portrait">
+        <intent
+            android:action="com.tamimrijan.camora.action.LAUNCH"
+            android:targetClass="com.tamimrijan.camora.MainActivity"
+            android:targetPackage="com.tamimrijan.camora">
+            <extra android:name="camora.mode" android:value="PORTRAIT" />
+        </intent>
+    </shortcut>    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_pro"
+        android:shortcutId="pro"
+        android:shortcutShortLabel="@string/sc_pro">
+        <intent
+            android:action="com.tamimrijan.camora.action.LAUNCH"
+            android:targetClass="com.tamimrijan.camora.MainActivity"
+            android:targetPackage="com.tamimrijan.camora">
+            <extra android:name="camora.mode" android:value="PRO" />
+        </intent>
+    </shortcut>    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_gallery"
+        android:shortcutId="gallery"
+        android:shortcutShortLabel="@string/sc_gallery">
+        <intent
+            android:action="com.tamimrijan.camora.action.LAUNCH"
+            android:targetClass="com.tamimrijan.camora.MainActivity"
+            android:targetPackage="com.tamimrijan.camora">
+            <extra android:name="camora.open" android:value="gallery" />
+        </intent>
+    </shortcut></shortcuts>

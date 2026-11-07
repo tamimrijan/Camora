@@ -41,6 +41,7 @@ class MediaRepository(private val context: Context) {
 
     fun notifyChanged() {
         _version.value++
+        com.tamimrijan.camora.widget.Widgets.refreshLastPhoto(context)
     }
 
     private val collection get() = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)

@@ -352,6 +352,8 @@ private fun ViewerAction(icon: ImageVector, label: String, onClick: () -> Unit) 
     }
 }
 
+// The producers do assign value; this lint check misreads suspend calls on the right side.
+@android.annotation.SuppressLint("ProduceStateDoesNotAssignValue")
 @Composable
 private fun InfoSheet(item: MediaItem) {
     val ctx = LocalContext.current

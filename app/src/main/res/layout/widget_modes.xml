@@ -1,0 +1,99 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg_round"
+    android:orientation="horizontal"
+    android:padding="5dp">    <LinearLayout
+        android:id="@+id/mode_portrait"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:background="@drawable/widget_chip"
+        android:layout_margin="3dp"
+        android:gravity="center"
+        android:orientation="vertical">
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="Portrait"
+            android:src="@drawable/ic_w_portrait" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:maxLines="1"
+            android:text="Portrait"
+            android:textColor="#FFD4D4DA"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>    <LinearLayout
+        android:id="@+id/mode_photo"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:background="@drawable/widget_chip"
+        android:layout_margin="3dp"
+        android:gravity="center"
+        android:orientation="vertical">
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="Photo"
+            android:src="@drawable/ic_w_camera" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:maxLines="1"
+            android:text="Photo"
+            android:textColor="#FFFFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>    <LinearLayout
+        android:id="@+id/mode_selfie"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:background="@drawable/widget_chip"
+        android:layout_margin="3dp"
+        android:gravity="center"
+        android:orientation="vertical">
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="Selfie"
+            android:src="@drawable/ic_w_selfie" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:maxLines="1"
+            android:text="Selfie"
+            android:textColor="#FFD4D4DA"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>    <LinearLayout
+        android:id="@+id/mode_pro"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:background="@drawable/widget_chip"
+        android:layout_margin="3dp"
+        android:gravity="center"
+        android:orientation="vertical">
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="Pro"
+            android:src="@drawable/ic_w_pro" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:maxLines="1"
+            android:text="Pro"
+            android:textColor="#FFD4D4DA"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout></LinearLayout>

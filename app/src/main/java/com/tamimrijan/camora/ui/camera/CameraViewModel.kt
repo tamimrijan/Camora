@@ -36,6 +36,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -95,9 +97,11 @@ class CameraViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Set if the GPU preview pipeline failed on this device; the camera then runs without it. */
     private val effectFailed = MutableStateFlow(false)
+    private val restart = MutableStateFlow(0)
+    private var stalls = 0
 
     /** Everything that requires re-binding CameraX. */
-    val bindRequest: StateFlow<BindRequest?> = combine(_ui.map { Triple(it.mode, it.front, it.cameraId) }.distinctUntilChanged(), settings, effectFailed) { (mode, front, id), s, broken ->
+    val bindRequest: StateFlow<BindRequest?> = combine(_ui.map { Triple(it.mode, it.front, it.cameraId) }.distinctUntilChanged(), settings, effectFailed, restart) { (mode, front, id), s, broken, again ->
         val skinMode = beautyMode(mode, front)
         BindRequest(
             mode = mode,
@@ -111,6 +115,7 @@ class CameraViewModel(app: Application) : AndroidViewModel(app) {
             faceTracking = s.faceExposure || skinMode,
             landmarks = skinMode,
             portraitPreview = mode == CameraMode.PORTRAIT && s.portraitBlur > 0f,
+            restart = again,
         )
     }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
@@ -158,10 +163,38 @@ class CameraViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             settings.map { it.flash }.distinctUntilChanged().collect { controller.setFlash(it) }
         }
+        // A widget or app shortcut asked for a mode (Selfie, Portrait, Pro, Photo).
+        viewModelScope.launch {
+            nc.launchMode.filterNotNull().collect { m ->
+                nc.launchMode.value = null
+                openMode(m)
+            }
+        }
+        // Photos deleted or edited in the gallery: keep the corner thumbnail in sync.
+        viewModelScope.launch {
+            nc.media.version.drop(1).collect { refreshThumb() }
+        }
+        // Unlocked after shooting from the lock screen: show the real latest photo again.
+        viewModelScope.launch {
+            nc.lockedSession.drop(1).collect { locked -> if (!locked) refreshThumb() }
+        }
         refreshThumb()
     }
 
+    /** Jump straight into [m] with the right camera (front for Selfie, back otherwise). */
+    private fun openMode(m: CameraMode) {
+        _ui.update {
+            val front = m == CameraMode.SELFIE
+            it.copy(
+                mode = m, front = front, cameraId = if (front != it.front) null else it.cameraId,
+                panel = Panel.NONE, proParam = null, manual = ManualSettings(), focusLocked = false,
+            )
+        }
+    }
+
     fun refreshThumb() {
+        // Over the lock screen only photos taken in this session are shown.
+        if (nc.lockedSession.value) return
         viewModelScope.launch {
             val first = runCatching { nc.media.query() }.getOrDefault(emptyList()).firstOrNull()
             if (first == null) {
@@ -181,6 +214,23 @@ class CameraViewModel(app: Application) : AndroidViewModel(app) {
         pendingZoom = null
         if (_ui.value.mode == CameraMode.PRO) controller.applyManual(_ui.value.manual)
         cameraState.value.notice?.let { _messages.emit(it) }
+    }
+
+    /**
+     * The viewfinder showed nothing for a few seconds while the camera was running. First try
+     * a fresh bind; if it stalls again, switch off the GPU preview effect for this session so
+     * the plain camera preview always shows (photos are still fully processed).
+     */
+    fun onPreviewStalled() {
+        stalls++
+        if (stalls >= 2 || effectFailed.value) {
+            if (!effectFailed.value) {
+                effectFailed.value = true
+                _messages.tryEmit("Live look paused to keep the camera working; photos are still processed")
+            }
+        } else {
+            restart.value++
+        }
     }
 
     // ---- UI actions -----------------------------------------------------------------------
@@ -323,7 +373,8 @@ class CameraViewModel(app: Application) : AndroidViewModel(app) {
                 )
                 if (!nc.pipeline.submit(job)) _messages.emit("Processing queue full")
             } catch (t: Throwable) {
-                _messages.emit("Capture failed: ${t.message}")
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                _messages.emit("Capture failed: ${t.message ?: t.javaClass.simpleName}")
             } finally {
                 _ui.update { it.copy(capturing = false, screenFlash = false, burst = null, countdown = 0) }
             }

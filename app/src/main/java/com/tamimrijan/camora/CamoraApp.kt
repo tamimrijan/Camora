@@ -4,12 +4,20 @@ import android.app.Application
 import com.tamimrijan.camora.data.MediaRepository
 import com.tamimrijan.camora.data.SettingsRepository
 import com.tamimrijan.camora.processing.CapturePipeline
+import com.tamimrijan.camora.camera.CameraMode
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /** Tiny service locator; the app is small enough not to need a DI framework. */
 class CamoraApp : Application() {
     val settings by lazy { SettingsRepository(this) }
     val media by lazy { MediaRepository(this) }
     val pipeline by lazy { CapturePipeline(this, media) }
+
+    /** Camera mode asked for by a widget or app shortcut; the camera applies it, then clears it. */
+    val launchMode = MutableStateFlow<CameraMode?>(null)
+
+    /** True while Camora is shown over the lock screen: only the camera is open, everything else asks to unlock. */
+    val lockedSession = MutableStateFlow(false)
 
     override fun onCreate() {
         super.onCreate()

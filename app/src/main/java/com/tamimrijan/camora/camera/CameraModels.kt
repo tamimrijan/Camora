@@ -29,6 +29,7 @@ data class BindRequest(
     val faceTracking: Boolean = true,      // feed faces to the live preview (face light, skin)
     val landmarks: Boolean = false,        // eyes/mouth positions for the live skin preview
     val portraitPreview: Boolean = false,
+    val restart: Int = 0,                  // bumped to force a fresh bind after a preview stall
 )
 
 /** One JPEG straight from the camera HAL. */

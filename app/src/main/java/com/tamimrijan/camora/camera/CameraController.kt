@@ -65,6 +65,7 @@ class CameraController(private val context: Context, val previewProcessor: Natur
     private var camera: Camera? = null
     private var imageCapture: ImageCapture? = null
     private var analyzer: LiveAnalyzer? = null
+    private var zoomLive: androidx.lifecycle.LiveData<androidx.camera.core.ZoomState>? = null
     private var lens: LensInfo? = null
     private var targetRotation = Surface.ROTATION_0
     private var lastMetaPublish = 0L
@@ -143,6 +144,8 @@ class CameraController(private val context: Context, val previewProcessor: Natur
                         },
                     )
                 }
+                zoomLive?.removeObservers(owner)
+                zoomLive = cam.cameraInfo.zoomState
                 cam.cameraInfo.zoomState.observe(owner) { z ->
                     _state.update { it.copy(zoomRatio = z.zoomRatio, minZoom = z.minZoomRatio, maxZoom = z.maxZoomRatio) }
                 }

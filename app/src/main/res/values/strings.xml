@@ -1,4 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Camora</string>
+
+    <string name="widget_quick_label">Quick shot</string>
+    <string name="widget_quick_desc">Opens the camera ready to shoot</string>
+    <string name="widget_selfie_label">Selfie</string>
+    <string name="widget_selfie_desc">Opens the front camera in Selfie mode</string>
+    <string name="widget_modes_label">Camera modes</string>
+    <string name="widget_modes_desc">Portrait, Photo, Selfie and Pro in one tap</string>
+    <string name="widget_last_label">Latest photo</string>
+    <string name="widget_last_desc">Your newest Camora photo with a shutter button</string>
+
+    <string name="sc_selfie">Selfie</string>
+    <string name="sc_portrait">Portrait</string>
+    <string name="sc_pro">Pro</string>
+    <string name="sc_gallery">Gallery</string>
 </resources>

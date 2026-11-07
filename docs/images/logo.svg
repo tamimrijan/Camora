@@ -1,11 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="168" height="168" viewBox="0 0 84 84">
-  <defs>
-    <linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="84" y2="84">
-      <stop offset="0" stop-color="#1B5FC7"/>
-      <stop offset="1" stop-color="#0B1E44"/>
-    </linearGradient>
-  </defs>
-  <path fill="url(#g)" d="M26,0 H58 A26,26 0 0 1 84,26 V58 A26,26 0 0 1 58,84 H26 A26,26 0 0 1 0,58 V26 A26,26 0 0 1 26,0 Z"/>
-  <circle cx="42" cy="42" r="23" fill="#9CC2FF"/>
-  <circle cx="42" cy="42" r="11" fill="#0B1E44"/>
-</svg>
+<svg xmlns='http://www.w3.org/2000/svg' width='216' height='216' viewBox='0 0 108 108'><defs><radialGradient id='bg6' cx='0.35' cy='0.3' r='0.9'><stop offset='0' stop-color='#22232B'/><stop offset='1' stop-color='#050507'/></radialGradient></defs><rect width='108' height='108' rx='26' fill='url(#bg6)'/><defs><radialGradient id='glow6' cx='0.5' cy='0.5' r='0.5'><stop offset='0.62' stop-color='#9CC2FF' stop-opacity='0.55'/><stop offset='1' stop-color='#9CC2FF' stop-opacity='0'/></radialGradient><linearGradient id='rim6' x1='0' y1='1' x2='1' y2='0'><stop offset='0' stop-color='#FFFFFF'/><stop offset='0.55' stop-color='#9CC2FF' stop-opacity='0.35'/><stop offset='1' stop-color='#9CC2FF' stop-opacity='0'/></linearGradient><radialGradient id='spark6'><stop offset='0' stop-color='#FFFFFF'/><stop offset='1' stop-color='#FFFFFF' stop-opacity='0'/></radialGradient></defs><circle cx='54' cy='54' r='38' fill='url(#glow6)'/><circle cx='54' cy='54' r='26' fill='#040406'/><circle cx='54' cy='54' r='26' fill='none' stroke='url(#rim6)' stroke-width='2.5'/><circle cx='36' cy='72' r='9' fill='url(#spark6)'/><circle cx='36' cy='72' r='2.6' fill='#FFFFFF'/></svg>
