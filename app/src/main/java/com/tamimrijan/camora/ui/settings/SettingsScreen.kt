@@ -50,6 +50,14 @@ import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
+import com.tamimrijan.camora.data.UpdateState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -289,7 +297,7 @@ private fun LazyListScope.appTab(s: AppSettings, set: ((AppSettings) -> AppSetti
             ListItem(
                 leadingContent = { Icon(Icons.Rounded.Lock, null, tint = MaterialTheme.colorScheme.primary) },
                 headlineContent = { Text("Everything stays on your phone") },
-                supportingContent = { Text("Camora has no internet permission. Photos and face data never leave the device. Photos are saved to DCIM/Camora.") },
+                supportingContent = { Text("Photos and face data are processed on this phone and never uploaded. Camora only goes online when you tap Check for updates. Photos are saved to DCIM/Camora.") },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             )
         }
@@ -303,13 +311,19 @@ private fun LazyListScope.aboutTab(ctx: Context) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             AboutPillar(Icons.Rounded.Palette, "Natural", "True colour", Modifier.weight(1f))
             AboutPillar(Icons.Rounded.CameraAlt, "Live", "Real time look", Modifier.weight(1f))
-            AboutPillar(Icons.Rounded.Lock, "Private", "No internet", Modifier.weight(1f))
+            AboutPillar(Icons.Rounded.Lock, "Private", "On device", Modifier.weight(1f))
         }
     }
+    item { UpdateCard() }
     item { AboutCreator(ctx) }
     item { AboutTech() }
     item {
+        val app = ctx.applicationContext as CamoraApp
+        val scope = rememberCoroutineScope()
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer), shape = RoundedCornerShape(24.dp)) {
+            AboutLink(Icons.Rounded.AutoAwesome, "Welcome tour", "See everything Camora can do") {
+                scope.launch { app.settings.update { it.copy(onboardingDone = false) } }
+            }
             AboutLink(Icons.Rounded.Share, "Share Camora", "Send the project link to a friend") {
                 val send = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
@@ -396,6 +410,84 @@ private fun AboutPillar(icon: ImageVector, title: String, caption: String, modif
             caption, style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant,
             maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+/** One tap updates from GitHub: check, download with progress, then Android's installer. */
+@Composable
+private fun UpdateCard() {
+    val ctx = LocalContext.current
+    val up = (ctx.applicationContext as CamoraApp).updater
+    val st by up.state.collectAsStateWithLifecycle()
+    val cs = MaterialTheme.colorScheme
+    val current = up.currentVersion
+    val (title, subtitle) = when (val s = st) {
+        UpdateState.Idle -> "Version $current" to "See if a newer Camora is out"
+        UpdateState.Checking -> "Checking GitHub" to "One moment"
+        UpdateState.UpToDate -> "You're up to date" to "Version $current is the latest"
+        is UpdateState.Available -> "Version ${s.info.version} is available" to "You have version $current"
+        is UpdateState.Downloading -> "Downloading ${s.info.version}" to "${(s.progress * 100).toInt()}%"
+        is UpdateState.Ready -> "Ready to install" to "Version ${s.info.version} is downloaded"
+        is UpdateState.Failed -> (if (s.info == null) "Could not check" else "Download stopped") to s.message
+    }
+    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainer), shape = RoundedCornerShape(24.dp)) {
+        Column(Modifier.fillMaxWidth().padding(20.dp)) {
+            Text("UPDATES", style = MaterialTheme.typography.labelMedium, color = cs.primary, letterSpacing = 1.5.sp)
+            Spacer(Modifier.height(14.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(44.dp).clip(CircleShape).background(cs.primaryContainer), contentAlignment = Alignment.Center) {
+                    when (st) {
+                        UpdateState.Checking -> CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.5.dp, color = cs.onPrimaryContainer)
+                        else -> Icon(
+                            when (st) {
+                                UpdateState.UpToDate -> Icons.Rounded.CheckCircle
+                                is UpdateState.Failed -> Icons.Rounded.ErrorOutline
+                                else -> Icons.Rounded.SystemUpdate
+                            },
+                            null, Modifier.size(22.dp), tint = cs.onPrimaryContainer,
+                        )
+                    }
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
+                    Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+                }
+            }
+            (st as? UpdateState.Downloading)?.let { d ->
+                Spacer(Modifier.height(14.dp))
+                LinearProgressIndicator(progress = { d.progress }, modifier = Modifier.fillMaxWidth().clip(CircleShape))
+            }
+            (st as? UpdateState.Available)?.info?.notes?.takeIf { it.isNotBlank() }?.let { notes ->
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    notes, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, maxLines = 8,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(cs.surfaceContainerHigh).padding(12.dp),
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            val s = st
+            val (label, action, enabled) = when (s) {
+                UpdateState.Checking -> Triple("Checking", {}, false)
+                is UpdateState.Available -> Triple(
+                    "Download and install" + if (s.info.sizeBytes > 0) " (%.1f MB)".format(s.info.sizeBytes / 1e6) else "",
+                    { up.download(s.info) }, true,
+                )
+                is UpdateState.Downloading -> Triple("Downloading", {}, false)
+                is UpdateState.Ready -> Triple("Install update", { up.install() }, true)
+                is UpdateState.Failed -> if (s.info != null) Triple("Try again", { up.download(s.info) }, true) else Triple("Try again", { up.check() }, true)
+                UpdateState.UpToDate -> Triple("Check again", { up.check() }, true)
+                UpdateState.Idle -> Triple("Check for updates", { up.check() }, true)
+            }
+            Button(onClick = action, enabled = enabled, modifier = Modifier.fillMaxWidth().height(50.dp)) { Text(label) }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Camora connects to GitHub only when you tap this button.",
+                style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 

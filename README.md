@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/images/logo.svg" width="120" alt="Camora logo"/>
+<img src="docs/images/logo-dot-c.svg" width="120" alt="Camora logo"/>
 
 # Camora
 
@@ -12,26 +12,46 @@ A premium Android camera with its own image engine. Photos come out with true to
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/compose)
 [![CameraX](https://img.shields.io/badge/CameraX-1.4-1B5FC7)](https://developer.android.com/media/camera/camerax)
-[![Privacy](https://img.shields.io/badge/Internet%20permission-none-0B1E44)](#privacy)
+[![Privacy](https://img.shields.io/badge/Photos-stay%20on%20device-000000)](#privacy)
 [![Made for](https://img.shields.io/badge/Tuned%20for-Galaxy%20M35%205G-1428A0?logo=samsung&logoColor=white)](docs/GALAXY_M35.md)
 
 **[Download the APK](../../releases/latest)** · [How it works](docs/ARCHITECTURE.md) · [Galaxy M35 notes](docs/GALAXY_M35.md)
 
 </div>
 
+<p align="center">
+  <img src="docs/images/clean-install-banner.svg" width="100%" alt="Clean install required when upgrading from 2.2.x to 2.3.x"/>
+</p>
+
+> [!CAUTION]
+> # Upgrading from 2.2.x to 2.3.x? CLEAN INSTALL ONLY
+>
+> ### Please do **NOT** install 2.3.x on top of 2.2.x (no "dirty install").
+>
+> **Do this instead:**
+> 1. **Uninstall** Camora 2.2.x: long press the Camora icon → **Uninstall**
+> 2. **Download and install** the newest **Camora 2.3.x** from **[Releases](../../releases/latest)**
+> 3. **Open** Camora and go through the welcome tour once
+>
+> **Your photos are safe.** They stay in `DCIM/Camora` and in your phone's gallery app. Only Camora's settings are reset.
+>
+> After the clean install, Camora's own gallery starts empty, because Android only lets an app see photos it saved since it was installed. Your old photos are still in your phone's gallery.
+>
+> **From 2.3.2 on**, updates are one tap inside the app: **Settings → About → Check for updates**.
+
 ---
 
-## ✨ Why Camora
+## Why Camora
 
 Most phone cameras push saturation, sharpening and beauty filters. Camora goes the other way. Inspired by the gentle look of the iPhone 11 and 12, it develops every photo with its own **Natural image engine**:
 
-- 🎨 **Natural colour science.** Colour profiles are evaluated in the perceptual OKLab space, so skin stays golden, skies stay blue and foliage never turns neon.
-- 🌗 **Smart HDR.** Edge-aware local tone mapping recovers shadows and highlights without the flat "HDR look". HDR On merges a 3-frame burst.
-- 🙂 **Faces done right.** Exposure follows faces, and a backlit face is lifted based on the *lighting*, never by lightening skin tone.
-- 🪞 **What you see is what you get.** The viewfinder runs the same pipeline on the GPU: colour profile, HDR, face lighting, skin smoothing and portrait blur, all **in real time**.
-- 🔒 **Private by design.** Camora has no internet permission. Everything happens on the phone.
+- **Natural colour science.** Colour profiles are evaluated in the perceptual OKLab space, so skin stays golden, skies stay blue and foliage never turns neon.
+- **Smart HDR.** Edge-aware local tone mapping recovers shadows and highlights without the flat "HDR look". HDR On merges a 3-frame burst.
+- **Faces done right.** Exposure follows faces, and a backlit face is lifted based on the *lighting*, never by lightening skin tone.
+- **What you see is what you get.** The viewfinder runs the same pipeline on the GPU: colour profile, HDR, face lighting, skin smoothing and portrait blur, all **in real time**.
+- **Private by design.** Photos and faces are processed on the phone and never uploaded. Camora only goes online when you tap *Check for updates*.
 
-## 📸 Features
+## Features
 
 | | |
 |---|---|
@@ -47,10 +67,12 @@ Most phone cameras push saturation, sharpening and beauty filters. Camora goes t
 | **Widgets** | Quick shot and Selfie (1×1), Camera modes (4×1), Latest photo (2×2) |
 | **Shortcuts** | Long press the app icon for Selfie, Portrait, Pro or Gallery |
 | **Lock screen** | Opens over the lock screen from a lock screen shortcut or the side key. Your gallery stays locked until you unlock |
+| **Updates** | About → *Check for updates*: one tap to download and install the newest release |
+| **Welcome tour** | A short animated tour of Camora on first launch (replay it from About) |
 | **Formats** | JPEG (EXIF kept) or HEIF |
 | **Design** | Material 3 with light and dark themes and dynamic colour. Adapts to any screen size |
 
-## 🎨 The looks
+## The looks
 
 Colour chart (ColorChecker patches, a skin tone row and a grey ramp) rendered by the engine:
 
@@ -64,7 +86,7 @@ Engine test scenes. On the left, a backlit face is lifted while the sky keeps it
 |:---:|:---:|:---:|:---:|
 | <img src="docs/images/backlit_before.png" width="190"/> | <img src="docs/images/backlit_after.png" width="190"/> | <img src="docs/images/portrait_before.png" width="190"/> | <img src="docs/images/portrait_after.png" width="190"/> |
 
-## 🧠 How it works
+## How it works
 
 ```mermaid
 flowchart LR
@@ -82,13 +104,16 @@ The preview and the photo share **the same decisions and the same 33³ colour LU
 
 **Tech stack:** Kotlin · Jetpack Compose · Material 3 · CameraX + Camera2 interop · OpenGL ES 3.0 · ML Kit (bundled, on-device) · DataStore · MediaStore.
 
-## 📲 Install
+## Install
 
-1. Download `Camora-2.3.0.apk` from **[Releases](../../releases/latest)**.
+1. Download `Camora-2.3.2.apk` from **[Releases](../../releases/latest)**.
 2. Open it on your phone and allow *Install unknown apps* when asked.
-3. Grant the camera permission. That's the only one Camora asks for.
+3. Grant the camera permission. That's the only permission Camora asks you for.
 
-## 🛠 Build from source
+### Updating
+Open **Settings → About → Check for updates**. If a new version is out, tap **Download and install**. The first time, Android asks you to allow Camora to install updates. Updates only install over a Camora build signed with the same key, so use the APKs from this repository's Releases.
+
+## Build from source
 
 Requirements: **JDK 17** and **Android SDK 35**. Android Studio Ladybug or newer works.
 
@@ -104,7 +129,7 @@ To run the engine unit tests (they also render the sample images above):
 ./gradlew :app:testDebugUnitTest
 ```
 
-## 📁 Project structure
+## Project structure
 
 ```
 app/src/main/java/com/tamimrijan/camora/
@@ -116,27 +141,29 @@ app/src/main/java/com/tamimrijan/camora/
 └── ui/          Compose screens: camera, gallery, editor, tabbed settings
 ```
 
-## 🔒 Privacy
+## Privacy
 
-- The only permission is the **camera**.
-- The **internet permission is removed** from the app, so photos, faces and usage data cannot leave the device.
+- The only permission you are asked for is the **camera**.
+- **Photos, faces and usage data never leave the device.** Everything is processed on the phone.
+- Camora connects to the internet for **one thing only**: when you tap *Check for updates*, it asks GitHub for the latest release and downloads the APK. Nothing about you or your photos is sent. It never checks in the background.
+- ML Kit's built in usage logging is switched off in the app manifest.
 - Face detection and segmentation use ML Kit models bundled in the app, running offline.
 - Photos are saved locally to `DCIM/Camora`.
 
-## 👤 Author
+<h2 align="center">Author</h2>
 
-<table>
-<tr>
-<td align="center">
+<div align="center">
+
 <b>Tamim Ahmed Rijan</b><br/>
-Designer & developer of Camora<br/><br/>
+Designer and developer of Camora<br/><br/>
+
 <a href="https://github.com/tamimrijan"><img src="https://img.shields.io/badge/GitHub-tamimrijan-181717?logo=github&logoColor=white"/></a>
 <a href="https://www.instagram.com/tamim_ahmed_rijan/"><img src="https://img.shields.io/badge/Instagram-Tamim%20Ahmed%20Rijan-E4405F?logo=instagram&logoColor=white"/></a>
-</td>
-</tr>
-</table>
 
-If you like Camora, leave a ⭐ on the repository!
+<br/><br/>
+If you like Camora, leave a star on the repository.
+
+</div>
 
 ---
 

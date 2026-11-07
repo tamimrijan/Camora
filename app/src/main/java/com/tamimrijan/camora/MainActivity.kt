@@ -52,6 +52,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -97,10 +99,18 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             val app = application as CamoraApp
-            val settings by app.settings.settings.collectAsStateWithLifecycle(AppSettings())
+            // null until DataStore has loaded, so returning users never see the tour flash.
+            val loaded by app.settings.settings.collectAsStateWithLifecycle(null)
+            val settings = loaded ?: AppSettings()
             volumeShutter = settings.volumeKeyShutter
             CamoraTheme(settings.theme, settings.dynamicColor) {
-                PermissionGate { AppNav(settings) }
+                when {
+                    loaded == null -> Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black))
+                    !settings.onboardingDone -> com.tamimrijan.camora.ui.onboarding.WelcomeTour(
+                        onFinish = { lifecycleScope.launch { app.settings.update { it.copy(onboardingDone = true) } } },
+                    )
+                    else -> PermissionGate { AppNav(settings) }
+                }
             }
         }
     }

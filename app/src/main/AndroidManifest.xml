@@ -7,11 +7,13 @@
     <!-- The only permission Camora asks for. -->
     <uses-permission android:name="android.permission.CAMERA" />
 
-    <!-- Privacy: strip network access that libraries would otherwise merge in.
-         ML Kit models are bundled, so face detection and segmentation work offline,
-         and nothing (photos, faces, usage) can leave the device. -->
-    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <!-- Internet is used for one thing only: "Check for updates" in About, when the user taps it.
+         ML Kit models are bundled, so face detection and segmentation work offline, and photos,
+         faces and usage never leave the device. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
+    <!-- Lets the user install a downloaded Camora update (Android asks once). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Lets the About page open GitHub / Instagram in a browser on Android 11+. -->
     <queries>
@@ -60,6 +62,22 @@
                 android:resource="@xml/shortcuts" />
         </activity>
 
+        <!-- Hands a downloaded update to Android's package installer. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_paths" />
+        </provider>
+
+        <!-- Privacy: switch off ML Kit's bundled usage logging (Google datatransport). Without a
+             backend nothing is ever uploaded, now that the app has internet for updates. -->
+        <service
+            android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
+            tools:node="remove" />
         <!-- Widgets (home screen, and lock screen where the phone allows it). -->
         <receiver android:name=".widget.QuickShotWidget" android:exported="false" android:label="@string/widget_quick_label">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>

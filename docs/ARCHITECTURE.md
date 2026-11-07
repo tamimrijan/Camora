@@ -80,8 +80,9 @@ weights so nothing ghosts. Tone mapping then adds +1 EV back.
 * **No OpenCV.** Box and guided filters, disc blur, alignment and LUTs are all
   implemented in O(1)-per-pixel Kotlin. OpenCV would add about 20–30 MB of
   native libraries.
-* **ML Kit with bundled models** runs fully offline. The INTERNET permission
-  is removed from the manifest.
+* **ML Kit with bundled models** runs fully offline, and its usage logging is removed
+  in the manifest. The only network code is the user initiated update check
+  (`data/UpdateManager.kt`), which talks to the GitHub releases API.
 
 ## Performance
 * Photos develop on a background queue (up to 3 waiting), so the shutter

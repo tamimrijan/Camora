@@ -24,8 +24,8 @@ android {
         applicationId = "com.tamimrijan.camora"
         minSdk = 29
         targetSdk = 35
-        versionCode = 19
-        versionName = "2.3.0"
+        versionCode = 21
+        versionName = "2.3.2"
         vectorDrawables { useSupportLibrary = true }
     }
 

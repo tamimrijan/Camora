@@ -53,6 +53,7 @@ data class AppSettings(
     // app
     val theme: ThemeSetting = ThemeSetting.SYSTEM,
     val dynamicColor: Boolean = false,
+    val onboardingDone: Boolean = false,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -82,6 +83,7 @@ class SettingsRepository(private val context: Context) {
         val flash = stringPreferencesKey("flash")
         val theme = stringPreferencesKey("theme")
         val dynamic = booleanPreferencesKey("dynamic_color")
+        val onboarding = booleanPreferencesKey("onboarding_done")
     }
 
     private inline fun <reified E : Enum<E>> Preferences.enum(key: Preferences.Key<String>, def: E): E =
@@ -115,6 +117,7 @@ class SettingsRepository(private val context: Context) {
             p[K.flash] = n.flash.name
             p[K.theme] = n.theme.name
             p[K.dynamic] = n.dynamicColor
+            p[K.onboarding] = n.onboardingDone
         }
     }
 
@@ -132,6 +135,7 @@ class SettingsRepository(private val context: Context) {
             highRes = p[K.highRes] ?: d.highRes, format = p.enum(K.format, d.format), jpegQuality = p[K.quality] ?: d.jpegQuality,
             shutterSound = p[K.sound] ?: d.shutterSound, grid = p[K.grid] ?: d.grid, volumeKeyShutter = p[K.volume] ?: d.volumeKeyShutter,
             flash = p.enum(K.flash, d.flash), theme = p.enum(K.theme, d.theme), dynamicColor = p[K.dynamic] ?: d.dynamicColor,
+            onboardingDone = p[K.onboarding] ?: d.onboardingDone,
         )
     }
 }

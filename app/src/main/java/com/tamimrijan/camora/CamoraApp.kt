@@ -12,6 +12,7 @@ class CamoraApp : Application() {
     val settings by lazy { SettingsRepository(this) }
     val media by lazy { MediaRepository(this) }
     val pipeline by lazy { CapturePipeline(this, media) }
+    val updater by lazy { com.tamimrijan.camora.data.UpdateManager(this) }
 
     /** Camera mode asked for by a widget or app shortcut; the camera applies it, then clears it. */
     val launchMode = MutableStateFlow<CameraMode?>(null)
