@@ -34,6 +34,8 @@ class LiveAnalyzer(
     private val landmarks: Boolean,
     private val segmentation: Boolean,
     private val processor: NaturalPreviewProcessor?,
+    /** Where ML Kit results are handled: the analysis thread, so the UI thread never does this work. */
+    private val callbacks: java.util.concurrent.Executor,
     /** face centres in camera-buffer pixels: [x, y, area] */
     private val onFaces: (List<FloatArray>, Int, Int) -> Unit,
 ) : ImageAnalysis.Analyzer {
@@ -42,7 +44,9 @@ class LiveAnalyzer(
         FaceDetectorOptions.Builder()
             .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
             .setLandmarkMode(if (landmarks) FaceDetectorOptions.LANDMARK_MODE_ALL else FaceDetectorOptions.LANDMARK_MODE_NONE)
-            .setMinFaceSize(0.1f)
+            // Same limit as the photo pipeline, so smaller faces (rear camera, people further
+            // away) also get live skin smoothing and face lighting.
+            .setMinFaceSize(0.06f)
             .build(),
     ) else null
 
@@ -72,7 +76,7 @@ class LiveAnalyzer(
         if (faceDetector != null && now - lastFace > interval) {
             lastFace = now
             val ts = image.imageInfo.timestamp
-            tasks += faceDetector.process(input).addOnSuccessListener { list ->
+            tasks += faceDetector.process(input).addOnSuccessListener(callbacks) { list ->
                 val centers = list.map { f ->
                     val b = f.boundingBox
                     val c = uprightToBuffer(b.exactCenterX(), b.exactCenterY(), rot, bw, bh)
@@ -88,20 +92,32 @@ class LiveAnalyzer(
             }
         }
         if (segmenter != null) {
-            tasks += segmenter.process(input).addOnSuccessListener { mask ->
+            tasks += segmenter.process(input).addOnSuccessListener(callbacks) { mask ->
                 val w = mask.width
                 val h = mask.height
                 val src = mask.buffer
                 src.rewind()
                 val fb = src.order(ByteOrder.nativeOrder()).asFloatBuffer()
-                val bytes = ByteBuffer.allocateDirect(w * h)
+                val bytes = maskBuffer(w * h)
                 for (i in 0 until w * h) bytes.put((fb.get(i).coerceIn(0f, 1f) * 255f + 0.5f).toInt().toByte())
                 bytes.position(0)
                 processor?.submitMask(NaturalPreviewProcessor.MaskFrame(w, h, bytes, rot, image.imageInfo.timestamp))
             }
         }
         if (tasks.isEmpty()) image.close()
-        else Tasks.whenAllComplete(tasks).addOnCompleteListener { image.close() }
+        else Tasks.whenAllComplete(tasks).addOnCompleteListener(callbacks) { image.close() }
+    }
+
+    // Three reused mask buffers instead of a new direct buffer for every frame. The GPU thread
+    // uploads the newest mask within a frame, long before its buffer comes round again.
+    private val maskPool = arrayOfNulls<ByteBuffer>(3)
+    private var maskNext = 0
+    private fun maskBuffer(size: Int): ByteBuffer {
+        val i = maskNext
+        maskNext = (maskNext + 1) % maskPool.size
+        val b = maskPool[i]?.takeIf { it.capacity() == size } ?: ByteBuffer.allocateDirect(size).also { maskPool[i] = it }
+        b.clear()
+        return b
     }
 
     fun close() {

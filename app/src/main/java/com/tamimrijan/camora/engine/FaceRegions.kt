@@ -9,6 +9,21 @@ import kotlin.math.sqrt
 object FaceRegions {
 
     /** Feathered ellipse mask covering each face (forehead to chin), at the given resolution. */
+    /**
+     * Portrait: segmentation sometimes leaves holes in a face (glasses, hats, hair, strong
+     * light). Every detected face is the subject, so its soft face ellipse is merged into the
+     * person mask and the face can never be blurred. [faces] are in full image pixels and
+     * [scale] is full image pixels per mask pixel.
+     */
+    fun protectFaces(mask: FloatPlane, faces: List<FaceInfo>, scale: Float) {
+        if (faces.isEmpty() || scale <= 0f) return
+        val inMask = faces.map { f -> FaceInfo(f.left / scale, f.top / scale, f.right / scale, f.bottom / scale) }
+        val face = ellipseMask(mask.width, mask.height, inMask)
+        val m = mask.data
+        val e = face.data
+        for (i in m.indices) if (e[i] > m[i]) m[i] = e[i]
+    }
+
     fun ellipseMask(w: Int, h: Int, faces: List<FaceInfo>): FloatPlane {
         val m = FloatPlane(w, h)
         for (f in faces) {

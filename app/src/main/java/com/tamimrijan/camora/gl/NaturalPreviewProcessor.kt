@@ -359,7 +359,7 @@ class NaturalPreviewProcessor : SurfaceProcessor {
                 surfaceOutput.close()
             }
         }
-        // After a quick pause/resume (opening from the lock screen) CameraX can hand over the
+        // After a quick pause/resume (screen off and on, app switch) CameraX can hand over the
         // same screen surface before the old output was closed. EGL then refuses a second
         // window surface on it and the viewfinder stayed black. Drop stale outputs first.
         val stale = outputs.entries.filter { it.value.surface === surface || !it.value.surface.isValid }
@@ -368,13 +368,26 @@ class NaturalPreviewProcessor : SurfaceProcessor {
             e.releaseSurface(out.egl)
             so.close()
         }
-        try {
-            outputs[surfaceOutput] = Out(e.createWindowSurface(surface), surfaceOutput.size, surface)
+        val win = try {
+            e.createWindowSurface(surface)
         } catch (t: Throwable) {
-            Log.e(TAG, "cannot create output surface", t)
-            surfaceOutput.close()
-            fail(t) // fall back to the plain preview instead of a black screen
+            // Still held by an output CameraX has not closed yet: release every old output and
+            // try once more. A failure here is never treated as a broken GPU (that would switch
+            // the live look off for the whole session).
+            Log.w(TAG, "output surface busy, releasing old outputs and retrying", t)
+            for ((so, out) in outputs.entries.toList()) {
+                e.releaseSurface(out.egl); so.close()
+            }
+            outputs.clear()
+            try {
+                e.createWindowSurface(surface)
+            } catch (t2: Throwable) {
+                Log.e(TAG, "cannot create output surface", t2)
+                surfaceOutput.close()
+                return
+            }
         }
+        outputs[surfaceOutput] = Out(win, surfaceOutput.size, surface)
     }
 
     private fun setupIllum(res: Size) {
@@ -541,7 +554,7 @@ class NaturalPreviewProcessor : SurfaceProcessor {
             uEyes[i * 4] = c[o + 4]; uEyes[i * 4 + 1] = c[o + 5]; uEyes[i * 4 + 2] = c[o + 6]; uEyes[i * 4 + 3] = c[o + 7]
             val faceWidth = c[o + 13] - c[o + 11]
             // same scale as BeautyPass: guided-filter radius ≈ 1.8% of the face width
-            uMouth[i * 4] = c[o + 8]; uMouth[i * 4 + 1] = c[o + 9]; uMouth[i * 4 + 2] = c[o + 10]; uMouth[i * 4 + 3] = faceWidth * 0.022f
+            uMouth[i * 4] = c[o + 8]; uMouth[i * 4 + 1] = c[o + 9]; uMouth[i * 4 + 2] = c[o + 10]; uMouth[i * 4 + 3] = faceWidth * 0.022f * com.tamimrijan.camora.engine.BeautyCurve.of(lk.smoothing).radiusScale
         }
         GLES30.glUniform1i(l.faceCount, n)
         if (n > 0) {

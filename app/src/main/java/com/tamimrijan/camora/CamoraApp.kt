@@ -17,8 +17,6 @@ class CamoraApp : Application() {
     /** Camera mode asked for by a widget or app shortcut; the camera applies it, then clears it. */
     val launchMode = MutableStateFlow<CameraMode?>(null)
 
-    /** True while Camora is shown over the lock screen: only the camera is open, everything else asks to unlock. */
-    val lockedSession = MutableStateFlow(false)
 
     override fun onCreate() {
         super.onCreate()

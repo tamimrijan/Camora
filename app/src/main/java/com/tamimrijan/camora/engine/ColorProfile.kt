@@ -62,11 +62,15 @@ data class ProfileSpec(
             skinPull = 0.25f, skinSat = 0.92f, skinLight = 0.006f,
             foliageSat = 0.94f, foliageHue = 4f, skySat = 1.06f, skyHue = -6f, skyLight = 0.012f, redSat = 0.94f,
         )
+        // Vivid: iPhone style punch. Deeper blacks and more midtone contrast, clearly richer
+        // colour (a higher chroma ceiling so blues, greens and reds can really saturate), deep
+        // blue skies and lush foliage. Skin is pulled to a pleasant hue and kept only slightly
+        // richer, so faces stay believable while everything else pops.
         val VIVID = ProfileSpec(
-            warmth = 0.01f, tint = 0.002f, toeSlope = 0.9f, contrast = 1.12f, shoulderSlope = 0.65f,
-            saturation = 1.12f, vibrance = 0.22f, chromaKnee = 0.2f,
-            skinPull = 0.25f, skinSat = 0.9f, skinLight = 0.006f,
-            foliageSat = 1.08f, foliageHue = 1f, skySat = 1.12f, skyHue = -3f, skyLight = 0.008f, redSat = 1.0f,
+            warmth = 0.014f, tint = 0.003f, toeSlope = 0.84f, contrast = 1.2f, shoulderSlope = 0.62f,
+            saturation = 1.24f, vibrance = 0.3f, chromaKnee = 0.27f,
+            skinPull = 0.3f, skinSat = 0.77f, skinLight = 0.004f,
+            foliageSat = 1.12f, foliageHue = 0.5f, skySat = 1.16f, skyHue = -4f, skyLight = -0.006f, redSat = 1.06f,
         )
 
         fun of(id: ColorProfileId): ProfileSpec? = when (id) {

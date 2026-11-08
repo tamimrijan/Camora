@@ -141,6 +141,35 @@ class ChromaRef(val w: Int, val h: Int, val scale: Float, val cb: FloatPlane, va
  * finest detail (pores, stubble) so skin never looks plastic. Eyes, brows and lips are
  * excluded.
  */
+/**
+ * How the skin smoothing slider maps to the filter. Shared by the photo engine and the live
+ * viewfinder shader (see PreviewShaders), so both look the same. Low settings stay gentle;
+ * towards 100% the smoothing gets wider and stronger and small spots are cleaned away, while
+ * some fine texture is always kept.
+ */
+data class BeautyCurve(
+    val amount: Float,       // how far skin moves towards the smoothed version
+    val textureKeep: Float,  // share of pore level texture added back
+    val radiusScale: Float,  // smoothing radius multiplier
+    val edgeScale: Float,    // how strong an edge must be to be preserved
+    val spotClean: Float,    // how much small dark spots are lifted
+) {
+    companion object {
+        const val EVEN_TONE = 0.62f
+
+        fun of(s: Float): BeautyCurve {
+            val v = s.coerceIn(0f, 1f)
+            return BeautyCurve(
+                amount = 0.7f * v + 0.1f * v * v,
+                textureKeep = 0.6f - 0.18f * v,
+                radiusScale = 1f + 0.35f * v,
+                edgeScale = 1f + 0.8f * v,
+                spotClean = 0.55f * v,
+            )
+        }
+    }
+}
+
 object BeautyPass {
     fun apply(img: PixelBuffer, faces: List<FaceInfo>, s: BeautySettings) {
         if (!s.active) return
@@ -194,15 +223,25 @@ object BeautyPass {
             mask = GuidedFilter.boxMean(mask, w, h, max(1, (fw * 0.012f).toInt()))
 
             if (s.smoothing > 0f) {
-                val r = clampi((fw * 0.018f).toInt(), 2, 24)
-                val smooth = GuidedFilter.selfGuided(ly, w, h, r, 0.0014f)
+                val sm = s.smoothing
+                val c = BeautyCurve.of(sm)
+                val r = clampi((fw * 0.018f * c.radiusScale).toInt(), 2, 36)
+                val smooth = GuidedFilter.selfGuided(ly, w, h, r, 0.0014f * c.edgeScale)
+                // Surrounding skin at a wider scale, to find small dark spots (blemishes).
+                val around = GuidedFilter.selfGuided(ly, w, h, clampi((r * 2.4f).toInt(), 4, 80), 0.003f)
                 val fine = GuidedFilter.boxMean(ly, w, h, 1)
-                val amount = s.smoothing * 0.75f
                 for (i in 0 until n) {
-                    val m = mask[i] * amount
-                    if (m <= 0.002f) continue
-                    val target = smooth[i] + (ly[i] - fine[i]) * 0.6f
-                    ly[i] += m * (target - ly[i])
+                    val mk = mask[i]
+                    if (mk <= 0.002f) continue
+                    val y0 = ly[i]
+                    // 1. smooth, keeping part of the pore level texture so skin never looks plastic
+                    val target = smooth[i] + (y0 - fine[i]) * c.textureKeep
+                    var y = y0 + mk * c.amount * (target - y0)
+                    // 2. clean: lift small dark spots towards the surrounding skin. Large dark
+                    //    areas (shadows, features) fade out of this by size and depth.
+                    val dark = around[i] - y
+                    if (dark > 0f) y += mk * c.spotClean * dark * (1f - smoothstep(0.10f, 0.22f, dark))
+                    ly[i] = y
                 }
             }
             if (s.evenTone > 0f) {
@@ -210,7 +249,7 @@ object BeautyPass {
                 val cbS = GuidedFilter.boxMean(cb, w, h, rc)
                 val crS = GuidedFilter.boxMean(cr, w, h, rc)
                 for (i in 0 until n) {
-                    val k = mask[i] * s.evenTone * 0.55f
+                    val k = mask[i] * s.evenTone * BeautyCurve.EVEN_TONE
                     if (k <= 0.002f) continue
                     cb[i] += k * (cbS[i] - cb[i])
                     cr[i] += k * (crS[i] - cr[i])

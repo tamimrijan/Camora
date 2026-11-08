@@ -120,40 +120,81 @@ class EngineTest {
         assertTrue("neutral settings must not change the photo (max diff $maxDiff)", maxDiff <= 6)
     }
 
-    @Test
-    fun beautyOnlyTouchesSkinAndKeepsTexture() = runBlocking {
-        val w = 1000
-        val h = 1000
+    /** Skin with pore level noise and small dark spots (blemishes), on a green background. */
+    private fun skinScene(w: Int, h: Int): Pair<RgbImage, (Int, Int) -> Boolean> {
         val rnd = Random(3)
-        val src = RgbImage(w, h)
-        val face = FaceInfo(300f, 250f, 700f, 750f)
+        val img = RgbImage(w, h)
+        // spots: 9 px across, 20 levels darker, every 48 px
+        val isSpot = { x: Int, y: Int -> val dx = (x % 48) - 24; val dy = (y % 48) - 24; dx * dx + dy * dy <= 20 }
         for (y in 0 until h) for (x in 0 until w) {
             val inFace = ((x - 500f) / 200f).let { it * it } + ((y - 500f) / 250f).let { it * it } < 1f
-            val blemish = if (inFace && ((x / 40 + y / 40) % 3 == 0)) -14 else 0
+            val spot = if (inFace && isSpot(x, y)) -20 else 0
             val tex = (rnd.nextGaussian() * 3).toInt()
-            src.pixels[y * w + x] = if (inFace) pack(205 + blemish + tex, 150 + blemish + tex, 125 + blemish + tex)
+            img.pixels[y * w + x] = if (inFace) pack(205 + spot + tex, 150 + spot + tex, 125 + spot + tex)
             else pack(40 + tex, 90 + tex, 60 + tex)
         }
+        return img to isSpot
+    }
+
+    private fun luma(img: RgbImage, x: Int, y: Int) = (img[x, y] shr 8) and 0xFF
+
+    /** Average darkness of spots versus the skin right next to them, on the cheek. */
+    private fun spotContrast(img: RgbImage, isSpot: (Int, Int) -> Boolean): Float {
+        var sIn = 0.0; var nIn = 0; var sOut = 0.0; var nOut = 0
+        for (y in 520 until 640) for (x in 380 until 620) {
+            val dx = (x % 48) - 24; val dy = (y % 48) - 24; val d2 = dx * dx + dy * dy
+            if (isSpot(x, y)) { sIn += luma(img, x, y); nIn++ } else if (d2 in 64..196) { sOut += luma(img, x, y); nOut++ }
+        }
+        return (sOut / nOut - sIn / nIn).toFloat()
+    }
+
+    /** Pore level texture: spread of each pixel around its 3x3 neighbours, away from spots. */
+    private fun fineTexture(img: RgbImage): Float {
+        var s2 = 0.0; var n = 0
+        for (y in 520 until 640) for (x in 380 until 620) {
+            val dx = (x % 48) - 24; val dy = (y % 48) - 24
+            if (dx * dx + dy * dy < 120) continue
+            var m = 0.0
+            for (j in -1..1) for (i in -1..1) m += luma(img, x + i, y + j)
+            val d = luma(img, x, y) - m / 9.0
+            s2 += d * d; n++
+        }
+        return kotlin.math.sqrt(s2 / n).toFloat()
+    }
+
+    @Test
+    fun beautyCleansSpotsKeepsTextureAndOnlyTouchesSkin() = runBlocking {
+        val w = 1000
+        val h = 1000
+        val face = FaceInfo(300f, 250f, 700f, 750f)
+        val (src, isSpot) = skinScene(w, h)
         val before = RgbImage(w, h, src.pixels.copyOf())
         BeautyPass.apply(src, listOf(face), BeautySettings(smoothing = 1f, evenTone = 0.5f))
         // outside the face nothing changes
         for (y in 0 until h step 7) for (x in 0 until 200 step 7) assertEquals(before[x, y], src[x, y])
-        // blemish contrast is reduced on the cheek...
-        fun std(img: RgbImage): Float {
-            var s = 0.0; var s2 = 0.0; var n = 0
-            for (y in 520 until 620) for (x in 380 until 480) {
-                val l = (img[x, y] shr 8) and 0xFF; s += l; s2 += l * l; n++
-            }
-            val m = s / n
-            return sqrt(s2 / n - m * m).toFloat()
-        }
-        val sb = std(before)
-        val sa = std(src)
-        assertTrue("smoothing reduced blemishes $sb -> $sa", sa < sb * 0.9f)
-        // ...but texture is not erased (no plastic skin)
-        assertTrue("texture retained $sa", sa > sb * 0.25f)
+        // spots are cleaned away at full strength...
+        val cb = spotContrast(before, isSpot)
+        val ca = spotContrast(src, isSpot)
+        assertTrue("spots cleaned $cb -> $ca", ca < cb * 0.6f)
+        // ...while real skin texture stays (no plastic skin)
+        val tb = fineTexture(before)
+        val ta = fineTexture(src)
+        println("beauty 100%: spot contrast $cb -> $ca levels, fine texture $tb -> $ta")
+        assertTrue("texture kept naturally $tb -> $ta", ta > tb * 0.45f)
     }
 
+    @Test
+    fun lowSmoothingStaysGentle() = runBlocking {
+        val face = FaceInfo(300f, 250f, 700f, 750f)
+        val (src, isSpot) = skinScene(1000, 1000)
+        val before = RgbImage(1000, 1000, src.pixels.copyOf())
+        BeautyPass.apply(src, listOf(face), BeautySettings(smoothing = 0.25f, evenTone = 0f))
+        val cb = spotContrast(before, isSpot)
+        val ca = spotContrast(src, isSpot)
+        println("beauty 25%: spot contrast $cb -> $ca levels, fine texture ${fineTexture(before)} -> ${fineTexture(src)}")
+        assertTrue("gentle at 25%: $cb -> $ca", ca > cb * 0.45f && ca < cb * 0.97f)
+        assertTrue("texture mostly kept at 25%", fineTexture(src) > fineTexture(before) * 0.7f)
+    }
     @Test
     fun multiFrameMergeAlignsAndDenoises() = runBlocking {
         val w = 768

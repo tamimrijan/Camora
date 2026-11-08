@@ -119,8 +119,12 @@ class CameraViewModel(app: Application) : AndroidViewModel(app) {
         )
     }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    /** Modes where skin smoothing applies (same rule as the capture pipeline). */
-    private fun beautyMode(mode: CameraMode, front: Boolean) = mode == CameraMode.SELFIE || mode == CameraMode.PORTRAIT || front
+    /**
+     * Modes where skin smoothing applies (same rule as the capture pipeline): every mode on
+     * both cameras except Pro, which stays fully manual.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    private fun beautyMode(mode: CameraMode, front: Boolean) = mode != CameraMode.PRO
 
     init {
         processor.onFailure = { t ->
@@ -174,10 +178,6 @@ class CameraViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             nc.media.version.drop(1).collect { refreshThumb() }
         }
-        // Unlocked after shooting from the lock screen: show the real latest photo again.
-        viewModelScope.launch {
-            nc.lockedSession.drop(1).collect { locked -> if (!locked) refreshThumb() }
-        }
         refreshThumb()
     }
 
@@ -193,8 +193,6 @@ class CameraViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun refreshThumb() {
-        // Over the lock screen only photos taken in this session are shown.
-        if (nc.lockedSession.value) return
         viewModelScope.launch {
             val first = runCatching { nc.media.query() }.getOrDefault(emptyList()).firstOrNull()
             if (first == null) {
@@ -217,20 +215,13 @@ class CameraViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * The viewfinder showed nothing for a few seconds while the camera was running. First try
-     * a fresh bind; if it stalls again, switch off the GPU preview effect for this session so
-     * the plain camera preview always shows (photos are still fully processed).
+     * The viewfinder stopped receiving frames. Rebind the camera with everything as it was
+     * (live look included). Limited to a few attempts per session so it can never loop.
      */
     fun onPreviewStalled() {
+        if (stalls >= 3) return
         stalls++
-        if (stalls >= 2 || effectFailed.value) {
-            if (!effectFailed.value) {
-                effectFailed.value = true
-                _messages.tryEmit("Live look paused to keep the camera working; photos are still processed")
-            }
-        } else {
-            restart.value++
-        }
+        restart.value++
     }
 
     // ---- UI actions -----------------------------------------------------------------------

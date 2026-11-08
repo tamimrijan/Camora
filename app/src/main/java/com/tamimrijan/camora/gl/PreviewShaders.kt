@@ -150,6 +150,11 @@ void main() {
         float gate = smoothstep(0.06, 0.14, y0) * (1.0 - smoothstep(0.96, 1.0, y0));
         float m = beautyMask * skin * gate;
         if (m > 0.01) {
+            // same slider curve as BeautyCurve in the photo engine
+            float sv = uBeauty.x;
+            float amt = 0.7 * sv + 0.1 * sv * sv;
+            float keep = 0.6 - 0.18 * sv;
+            float sig = 0.004 * (1.0 + 0.8 * sv);
             vec3 acc = c0;
             float ws = 1.0;
             for (int k = 0; k < 12; k++) {
@@ -158,19 +163,22 @@ void main() {
                 float th = fk * 2.39996323;
                 vec3 s = texture(uTex, vTex + vec2(cos(th), sin(th) / uQy) * rr).rgb;
                 float dl = luma(s) - y0;
-                float w = exp(-dl * dl / 0.004);
+                float w = exp(-dl * dl / sig);
                 acc += s * w;
                 ws += w;
             }
             vec3 sm = acc / ws;
             vec3 nb = 0.25 * (texture(uTex, vTex + vec2(uTexel.x, 0.0)).rgb + texture(uTex, vTex - vec2(uTexel.x, 0.0)).rgb +
                 texture(uTex, vTex + vec2(0.0, uTexel.y)).rgb + texture(uTex, vTex - vec2(0.0, uTexel.y)).rgb);
-            col = mix(c0, sm + (c0 - nb) * 0.6, m * uBeauty.x * 0.75);
+            col = mix(c0, sm + (c0 - nb) * keep, m * amt);
+            // clean: lift small dark spots towards the surrounding skin
+            float dark = luma(sm) - luma(col);
+            if (dark > 0.0) col += vec3(m * 0.55 * sv * dark * (1.0 - smoothstep(0.10, 0.22, dark)));
             if (uBeauty.y > 0.0) {
                 float yy = luma(col);
                 vec2 ch = vec2(col.b - yy, col.r - yy);
                 float ys = luma(sm);
-                float k2 = m * uBeauty.y * 0.55;
+                float k2 = m * uBeauty.y * 0.62;
                 ch = mix(ch, vec2(sm.b - ys, sm.r - ys), k2);
                 ch.y -= k2 * 0.35 * max(0.0, ch.y - uSkin.y);
                 float r = yy + ch.y;

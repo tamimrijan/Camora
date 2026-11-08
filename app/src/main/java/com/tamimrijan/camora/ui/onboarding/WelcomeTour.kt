@@ -103,7 +103,7 @@ private val PAGES = listOf(
     ),
     TourPage(
         Icons.Rounded.Tune, Color(0xFF7C9CFF), "Pro when you want it",
-        "Manual ISO, shutter, focus and white balance. Plus widgets, app shortcuts and a lock screen camera.",
+        "Manual ISO, shutter, focus and white balance. Plus home screen widgets and app shortcuts.",
         listOf("Pro mode", "Widgets", "Editor"),
     ),
     TourPage(

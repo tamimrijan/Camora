@@ -102,6 +102,34 @@ class ColorScienceTest {
     }
 
     @Test
+    fun vividIsPunchyButKeepsSkinNatural() {
+        val lut = LutBuilder.forProfile(ColorProfileId.VIVID)!!
+        val out = FloatArray(3)
+        // everyday colours: sky, foliage, red, orange, purple, teal (medium saturation)
+        val colours = listOf(
+            floatArrayOf(0.36f, 0.52f, 0.78f), floatArrayOf(0.34f, 0.48f, 0.25f), floatArrayOf(0.70f, 0.25f, 0.24f),
+            floatArrayOf(0.85f, 0.55f, 0.20f), floatArrayOf(0.45f, 0.32f, 0.60f), floatArrayOf(0.20f, 0.55f, 0.55f),
+        )
+        var gain = 0f
+        for (c in colours) {
+            lut.sample(c[0], c[1], c[2], out)
+            assertTrue("in gamut", out.all { it in 0f..1f })
+            gain += oklchOf(out)[1] / oklchOf(c)[1]
+        }
+        gain /= colours.size
+        println("vivid average chroma gain: $gain")
+        assertTrue("vivid is clearly richer: $gain", gain > 1.22f)
+        // skin: hue stays put and chroma rises only a little
+        for (s in listOf(floatArrayOf(0.93f, 0.76f, 0.65f), floatArrayOf(0.78f, 0.57f, 0.44f), floatArrayOf(0.45f, 0.30f, 0.22f))) {
+            lut.sample(s[0], s[1], s[2], out)
+            val a = oklchOf(s)
+            val b = oklchOf(out)
+            println("vivid skin chroma ${a[1]} -> ${b[1]}, hue ${a[2]} -> ${b[2]}")
+            assertTrue("skin hue ${a[2]} -> ${b[2]}", abs(a[2] - b[2]) < 7f)
+            assertTrue("skin chroma ${a[1]} -> ${b[1]}", b[1] < a[1] * 1.18f)
+        }
+    }
+    @Test
     fun vividAddsSaturationButCapsChroma() {
         val lut = LutBuilder.forProfile(ColorProfileId.VIVID)!!
         val out = FloatArray(3)

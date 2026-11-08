@@ -1,7 +1,6 @@
 package com.tamimrijan.camora
 
 import android.Manifest
-import android.app.KeyguardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -91,7 +90,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        updateLockScreen()
         if (savedInstanceState == null) handleLaunch(intent)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
@@ -118,40 +116,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        updateLockScreen()
         handleLaunch(intent)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        // Unlocked while Camora was open over the lock screen: back to a normal session.
-        val km = getSystemService(KeyguardManager::class.java)
-        if (app.lockedSession.value && km?.isKeyguardLocked == false) {
-            app.lockedSession.value = false
-            setShowWhenLocked(false)
-        }
-    }
-
-    /**
-     * Opened from the lock screen (Samsung lock screen shortcut, side key, lock screen widget or
-     * the secure camera intent): show the camera over the lock screen without unlocking. The
-     * manifest declares showWhenLocked so the system knows this before launching and doesn't ask
-     * for the PIN first. Photos already on the phone stay private until the phone is unlocked:
-     * only the camera is reachable, and the gallery, editor and settings ask to unlock.
-     * Opened normally (phone unlocked): behave like any app, so locking the phone hides Camora.
-     */
-    private fun updateLockScreen() {
-        val km = getSystemService(KeyguardManager::class.java) ?: return
-        if (km.isKeyguardLocked) {
-            setShowWhenLocked(true)
-            if (!app.lockedSession.value) {
-                app.lockedSession.value = true
-                navRequests.trySend("camera") // never resume on the gallery over the lock screen
-            }
-        } else {
-            setShowWhenLocked(false)
-            app.lockedSession.value = false
-        }
     }
 
     private fun handleLaunch(i: Intent?) {
@@ -171,23 +136,6 @@ class MainActivity : ComponentActivity() {
         i.removeExtra(Launch.EXTRA_OPEN)
     }
 
-    /** Runs [then] right away, or after the user unlocks when Camora is open over the lock screen. */
-    private fun requireUnlock(then: () -> Unit) {
-        val km = getSystemService(KeyguardManager::class.java)
-        if (!app.lockedSession.value || km == null || !km.isKeyguardLocked) {
-            app.lockedSession.value = false
-            then()
-            return
-        }
-        km.requestDismissKeyguard(this, object : KeyguardManager.KeyguardDismissCallback() {
-            override fun onDismissSucceeded() {
-                app.lockedSession.value = false
-                setShowWhenLocked(false)
-                then()
-            }
-        })
-    }
-
     @Composable
     private fun AppNav(settings: AppSettings) {
         val nav = rememberNavController()
@@ -195,11 +143,8 @@ class MainActivity : ComponentActivity() {
         val darkApp = isAppDark(settings.theme)
         LaunchedEffect(Unit) {
             navRequests.receiveAsFlow().collect { route ->
-                if (route == "camera") nav.popBackStack("camera", inclusive = false)
-                else requireUnlock {
-                    nav.popBackStack("camera", inclusive = false)
-                    nav.navigate(route)
-                }
+                nav.popBackStack("camera", inclusive = false)
+                if (route != "camera") nav.navigate(route)
             }
         }
         NavHost(
@@ -218,9 +163,9 @@ class MainActivity : ComponentActivity() {
                     CameraScreen(
                         vm = vm,
                         shutterKeys = shutterKeys,
-                        onOpenLatest = { requireUnlock { nav.navigate("viewer/0") } },
-                        onOpenGallery = { requireUnlock { nav.navigate("gallery") } },
-                        onOpenSettings = { requireUnlock { nav.navigate("settings") } },
+                        onOpenLatest = { nav.navigate("viewer/0") },
+                        onOpenGallery = { nav.navigate("gallery") },
+                        onOpenSettings = { nav.navigate("settings") },
                     )
                 }
             }

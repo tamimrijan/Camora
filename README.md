@@ -66,7 +66,6 @@ Most phone cameras push saturation, sharpening and beauty filters. Camora goes t
 | **Editor** | Exposure, contrast, highlights, shadows, saturation, warmth, tint, sharpness, look, HDR, skin, rotate and crop. Saves as a copy |
 | **Widgets** | Quick shot and Selfie (1×1), Camera modes (4×1), Latest photo (2×2) |
 | **Shortcuts** | Long press the app icon for Selfie, Portrait, Pro or Gallery |
-| **Lock screen** | Opens over the lock screen from a lock screen shortcut or the side key. Your gallery stays locked until you unlock |
 | **Updates** | About → *Check for updates*: one tap to download and install the newest release |
 | **Welcome tour** | A short animated tour of Camora on first launch (replay it from About) |
 | **Formats** | JPEG (EXIF kept) or HEIF |
@@ -106,7 +105,7 @@ The preview and the photo share **the same decisions and the same 33³ colour LU
 
 ## Install
 
-1. Download `Camora-2.3.2.apk` from **[Releases](../../releases/latest)**.
+1. Download `Camora-2.3.8.apk` from **[Releases](../../releases/latest)**.
 2. Open it on your phone and allow *Install unknown apps* when asked.
 3. Grant the camera permission. That's the only permission Camora asks you for.
 

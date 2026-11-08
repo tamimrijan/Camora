@@ -24,6 +24,7 @@ import com.tamimrijan.camora.processing.AndroidImaging.toBitmap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -93,7 +94,8 @@ class CapturePipeline(private val context: Context, private val media: MediaRepo
 
     private fun paramsFor(job: CaptureJob, iso: Int, merged: Int): ProcessParams {
         val s = job.settings
-        val beautyAllowed = job.mode == CameraMode.SELFIE || job.mode == CameraMode.PORTRAIT || job.front
+        // Skin smoothing on both cameras in every mode except Pro (same rule as the viewfinder).
+        val beautyAllowed = job.mode != CameraMode.PRO
         return ProcessParams(
             profile = s.profile,
             profileIntensity = s.profileIntensity,
@@ -152,9 +154,16 @@ class CapturePipeline(private val context: Context, private val media: MediaRepo
         var mask: com.tamimrijan.camora.engine.FloatPlane? = null
         if (needFaces || needMask) {
             val analysisBitmap = analysis.toBitmap()
-            if (needFaces) faces = AndroidImaging.detectFaces(analysisBitmap, f.toFloat())
-            if (needMask) mask = AndroidImaging.segmentPerson(analysisBitmap)
+            // Face detection and person segmentation are independent ML Kit models: run them
+            // at the same time instead of one after the other.
+            kotlinx.coroutines.coroutineScope {
+                val fd = if (needFaces) async { AndroidImaging.detectFaces(analysisBitmap, f.toFloat()) } else null
+                val sd = if (needMask) async { AndroidImaging.segmentPerson(analysisBitmap) } else null
+                faces = fd?.await() ?: emptyList()
+                mask = sd?.await()
+            }
             analysisBitmap.recycle()
+            mask?.let { com.tamimrijan.camora.engine.FaceRegions.protectFaces(it, faces, f.toFloat()) }
         }
 
         // 3. Natural engine.

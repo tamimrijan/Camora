@@ -201,21 +201,31 @@ fun CameraScreen(
     LaunchedEffect(Unit) { shutterKeys.collect { vm.onShutter() } }
     LaunchedEffect(Unit) { vm.refreshThumb() }
 
-    // Watchdog: the camera is running with the live look, but no frame has reached the screen
-    // for 3 seconds (black viewfinder). Rebind, and fall back to the plain preview if needed.
-    LaunchedEffect(owner) {
-        var since = 0L
+    // Watchdog for a frozen (black) viewfinder. It is deliberately patient: a cold start
+    // (camera open, GPU shaders, face models) can take several seconds before the first frame.
+    // It only checks after the camera has been bound AND the screen resumed for 8 seconds, it
+    // only reacts if frames had been arriving and then stopped for 6 seconds, and all it does
+    // is rebind the camera. It never turns the live look off.
+    var resumedAt by remember { mutableStateOf(android.os.SystemClock.elapsedRealtime()) }
+    DisposableEffect(owner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) resumedAt = android.os.SystemClock.elapsedRealtime()
+        }
+        owner.lifecycle.addObserver(obs)
+        onDispose { owner.lifecycle.removeObserver(obs) }
+    }
+    LaunchedEffect(owner, req) {
+        val boundAt = android.os.SystemClock.elapsedRealtime()
         while (true) {
             kotlinx.coroutines.delay(1000)
             val now = android.os.SystemClock.elapsedRealtime()
             val st = vm.cameraState.value
-            val watching = owner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) &&
-                st.bound && st.naturalPreviewActive
-            if (!watching) { since = 0L; continue }
-            if (since == 0L) { since = now; continue }
-            if (now - since > 3000 && now - vm.processor.lastDrawMs > 3000) {
+            val settled = owner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) &&
+                st.bound && st.naturalPreviewActive && now - boundAt > 8000 && now - resumedAt > 8000
+            val lastDraw = vm.processor.lastDrawMs
+            if (settled && lastDraw > 0L && now - lastDraw > 6000) {
                 vm.onPreviewStalled()
-                since = 0L
+                break // the rebind changes req, which restarts this watchdog with a fresh grace period
             }
         }
     }
@@ -538,7 +548,7 @@ private fun QuickRow(ui: CameraUi, s: AppSettings, rot: Float, vm: CameraViewMod
         QuickChip(Icons.Rounded.Palette, s.profile.label + if (s.profileIntensity < 0.99f) " ${(s.profileIntensity * 100).toInt()}" else "", ui.panel == Panel.PROFILE, rot) {
             vm.togglePanel(Panel.PROFILE)
         }
-        if (ui.mode == CameraMode.SELFIE || ui.mode == CameraMode.PORTRAIT || (ui.front && ui.mode == CameraMode.PHOTO)) {
+        if (ui.mode != CameraMode.PRO) {
             val b = s.beautySmoothing
             QuickChip(Icons.Rounded.FaceRetouchingNatural, if (b > 0f) "Skin ${(b * 100).toInt()}" else "Skin off", ui.panel == Panel.BEAUTY, rot) {
                 vm.togglePanel(Panel.BEAUTY)

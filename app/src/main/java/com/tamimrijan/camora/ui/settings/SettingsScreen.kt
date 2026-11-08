@@ -259,7 +259,7 @@ private fun LazyListScope.lookTab(s: AppSettings, set: ((AppSettings) -> AppSett
 
 private fun LazyListScope.portraitTab(s: AppSettings, set: ((AppSettings) -> AppSettings) -> Unit) {
     item {
-        Group("Skin (Selfie & Portrait)") {
+        Group("Skin (all modes except Pro)") {
             SliderRow("Skin smoothing", s.beautySmoothing, { v -> if (v == 0f) "Off" else "${(v * 100).toInt()}" }) { v -> set { it.copy(beautySmoothing = v) } }
             Divider()
             SliderRow("Even skin tone", s.beautyEvenTone, { v -> if (v == 0f) "Off" else "${(v * 100).toInt()}" }) { v -> set { it.copy(beautyEvenTone = v) } }

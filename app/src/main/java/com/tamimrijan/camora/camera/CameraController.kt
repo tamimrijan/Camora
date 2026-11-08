@@ -79,8 +79,9 @@ class CameraController(private val context: Context, val previewProcessor: Natur
     private var flash = FlashSetting.OFF
 
     // face-priority metering state
-    private var userMeteringUntil = 0L
-    private var faceActive = false
+    // Written on the UI thread (tap to focus) and read on the analysis thread (face metering).
+    @Volatile private var userMeteringUntil = 0L
+    @Volatile private var faceActive = false
     private var lastFaceSeen = 0L
     private var lastFaceAction = 0L
     private var lastFaceX = -1f
@@ -220,6 +221,7 @@ class CameraController(private val context: Context, val previewProcessor: Natur
                 landmarks = req.landmarks,
                 segmentation = req.portraitPreview,
                 processor = if (a.effect) previewProcessor else null,
+                callbacks = analysisExecutor,
                 onFaces = { list, w, h -> onFaces(list, w, h, ia) },
             )
             analyzer = an
