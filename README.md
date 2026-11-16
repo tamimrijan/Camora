@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/images/logo-dot-c.svg" width="120" alt="Camora logo"/>
+<img src="docs/images/logo-line-camera.svg" width="120" alt="Camora logo"/>
 
 # Camora
 
@@ -69,7 +69,7 @@ Most phone cameras push saturation, sharpening and beauty filters. Camora goes t
 | **Updates** | About → *Check for updates*: one tap to download and install the newest release |
 | **Welcome tour** | A short animated tour of Camora on first launch (replay it from About) |
 | **Formats** | JPEG (EXIF kept) or HEIF |
-| **Design** | Material 3 with light and dark themes and dynamic colour. Adapts to any screen size |
+| **Design** | Material 3 Expressive style: floating pill toolbars, shape morphing buttons, wavy progress, bold type and springy motion, with light and dark themes and dynamic colour. Adapts to any screen size |
 
 ## The looks
 
@@ -105,7 +105,7 @@ The preview and the photo share **the same decisions and the same 33³ colour LU
 
 ## Install
 
-1. Download `Camora-2.3.8.apk` from **[Releases](../../releases/latest)**.
+1. Download `Camora-2.5.0.apk` from **[Releases](../../releases/latest)**.
 2. Open it on your phone and allow *Install unknown apps* when asked.
 3. Grant the camera permission. That's the only permission Camora asks you for.
 

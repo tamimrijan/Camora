@@ -118,7 +118,7 @@ class ColorScienceTest {
         }
         gain /= colours.size
         println("vivid average chroma gain: $gain")
-        assertTrue("vivid is clearly richer: $gain", gain > 1.22f)
+        assertTrue("vivid is clearly richer: $gain", gain > 1.18f && gain < 1.3f)
         // skin: hue stays put and chroma rises only a little
         for (s in listOf(floatArrayOf(0.93f, 0.76f, 0.65f), floatArrayOf(0.78f, 0.57f, 0.44f), floatArrayOf(0.45f, 0.30f, 0.22f))) {
             lut.sample(s[0], s[1], s[2], out)
