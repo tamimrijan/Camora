@@ -16,6 +16,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.ui.res.painterResource
@@ -149,8 +153,12 @@ class MainActivity : ComponentActivity() {
         }
         NavHost(
             nav, startDestination = "camera",
-            enterTransition = { fadeIn() }, exitTransition = { fadeOut() },
-            popEnterTransition = { fadeIn() }, popExitTransition = { fadeOut() },
+            // Expressive screen changes: the new screen springs up from slightly smaller,
+            // going back the old one settles away.
+            enterTransition = { fadeIn(tween(220)) + scaleIn(spring(dampingRatio = 0.8f, stiffness = 380f), initialScale = 0.94f) },
+            exitTransition = { fadeOut(tween(160)) },
+            popEnterTransition = { fadeIn(tween(220)) },
+            popExitTransition = { fadeOut(tween(160)) + scaleOut(spring(dampingRatio = 0.9f, stiffness = 380f), targetScale = 0.94f) },
         ) {
             composable("camera") {
                 SystemBars(lightIcons = true, keepScreenOn = true)

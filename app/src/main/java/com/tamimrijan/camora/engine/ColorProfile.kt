@@ -39,6 +39,8 @@ data class ProfileSpec(
     val skyHue: Float = 0f,        // degrees, - = toward cyan
     val skyLight: Float = 0f,
     val redSat: Float = 1f,
+    /** How much of the look is applied at 100% intensity (1 = all of it). */
+    val strength: Float = 1f,
 ) {
     companion object {
         // Natural: neutral-warm balance, flat-ish midtone contrast with a soft shoulder,
@@ -71,6 +73,8 @@ data class ProfileSpec(
             saturation = 1.24f, vibrance = 0.3f, chromaKnee = 0.27f,
             skinPull = 0.3f, skinSat = 0.77f, skinLight = 0.004f,
             foliageSat = 1.12f, foliageHue = 0.5f, skySat = 1.16f, skyHue = -4f, skyLight = -0.006f, redSat = 1.06f,
+            // 100% on the slider = the look users found just right at 85%.
+            strength = 0.85f,
         )
 
         fun of(id: ColorProfileId): ProfileSpec? = when (id) {
@@ -180,6 +184,14 @@ object LutBuilder {
         val inv = 1f / (size - 1)
         for (b in 0 until size) for (g in 0 until size) for (r in 0 until size) {
             transform(spec, r * inv, g * inv, b * inv, tmp)
+            // Mixing the table with "no change" is exactly what the intensity slider does,
+            // so strength 0.85 at 100% looks identical to the full look at 85%.
+            val k = spec.strength
+            if (k < 1f) {
+                tmp[0] = r * inv + k * (tmp[0] - r * inv)
+                tmp[1] = g * inv + k * (tmp[1] - g * inv)
+                tmp[2] = b * inv + k * (tmp[2] - b * inv)
+            }
             d[i++] = tmp[0]; d[i++] = tmp[1]; d[i++] = tmp[2]
         }
         return Lut3D(size, d)

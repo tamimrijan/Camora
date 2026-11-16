@@ -103,6 +103,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tamimrijan.camora.camera.AspectSetting
 import com.tamimrijan.camora.camera.CameraMode
 import com.tamimrijan.camora.camera.FlashSetting
+import com.tamimrijan.camora.ui.theme.pressSquish
 import com.tamimrijan.camora.data.AppSettings
 import com.tamimrijan.camora.engine.ColorProfileId
 import com.tamimrijan.camora.engine.HdrMode
@@ -493,18 +494,18 @@ fun CameraScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                ThumbnailFrame(Modifier.rotate(rot).clickable {
+                ThumbnailFrame(Modifier.rotate(rot).pressSquish(0.88f).clickable {
                     if (ui.lastUri != null) onOpenLatest() else onOpenGallery()
                 }) {
                     val t = ui.lastThumb
                     if (t != null) Image(t.asImageBitmap(), "Latest photo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                     else Icon(Icons.Rounded.PhotoLibrary, "Gallery", tint = Color.White)
-                    if (busy > 0) CircularProgressIndicator(Modifier.size(26.dp), color = Accent, strokeWidth = 2.5.dp)
+                    if (busy > 0) com.tamimrijan.camora.ui.theme.WavyCircularProgress(null, Modifier.size(34.dp), color = Accent, stroke = 2.5.dp)
                 }
                 val progress = ui.burst?.let { (n, total) -> n.toFloat() / total }
                 ShutterButton(busy >= 3 || ui.capturing, progress, shutterSize) { vm.onShutter() }
                 Box(
-                    Modifier.size(50.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.14f))
+                    Modifier.size(50.dp).pressSquish(0.86f).clip(CircleShape).background(Color.White.copy(alpha = 0.14f))
                         .clickable(enabled = !ui.capturing) { vm.flipCamera() },
                     contentAlignment = Alignment.Center,
                 ) { Icon(Icons.Rounded.Cameraswitch, "Switch camera", tint = Color.White, modifier = Modifier.rotate(rot)) }
@@ -569,6 +570,7 @@ fun blurToAperture(b: Float): Float = 16f * Math.pow(1.4 / 16.0, b.toDouble()).t
 private fun QuickChip(icon: ImageVector, text: String, active: Boolean, rot: Float, onClick: () -> Unit) {
     Row(
         Modifier
+            .pressSquish(0.92f)
             .clip(RoundedCornerShape(50))
             .background(if (active) Accent.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.10f))
             .clickable(onClick = onClick)

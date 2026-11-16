@@ -72,6 +72,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tamimrijan.camora.R
+import com.tamimrijan.camora.ui.theme.pressSquish
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.floor
@@ -222,7 +223,7 @@ fun WelcomeTour(onFinish: () -> Unit) {
             Button(
                 onClick = { if (last) onFinish() else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
-                modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 20.dp).fillMaxWidth().widthIn(max = 480.dp).height(56.dp),
+                modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 20.dp).fillMaxWidth().widthIn(max = 480.dp).height(60.dp).pressSquish(0.95f),
             ) {
                 AnimatedContent(
                     last,

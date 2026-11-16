@@ -100,6 +100,7 @@ import androidx.lifecycle.viewModelScope
 import com.tamimrijan.camora.CamoraApp
 import com.tamimrijan.camora.data.MediaItem
 import com.tamimrijan.camora.ui.common.ImageLoading
+import com.tamimrijan.camora.ui.theme.pressSquish
 import com.tamimrijan.camora.ui.common.rememberDecoded
 import com.tamimrijan.camora.ui.common.rememberThumbnail
 import kotlinx.coroutines.Dispatchers
@@ -212,9 +213,10 @@ fun GalleryScreen(vm: GalleryViewModel, onBack: () -> Unit, onOpen: (Int) -> Uni
                     Modifier
                         .padding(2.dp)
                         .aspectRatio(1f)
-                        .clip(RoundedCornerShape(10.dp))
+                        .pressSquish(0.95f)
+                        .clip(RoundedCornerShape(16.dp))
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .then(if (sel) Modifier.border(3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(10.dp)) else Modifier)
+                        .then(if (sel) Modifier.border(3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp)) else Modifier)
                         .combinedClickable(
                             onClick = {
                                 if (selected.isNotEmpty()) { if (sel) selected.remove(item.id) else selected.add(item.id) } else onOpen(idx)
@@ -302,24 +304,26 @@ fun ViewerScreen(vm: GalleryViewModel, startIndex: Int, onBack: () -> Unit, onEd
                 }
                 IconButton(onClick = { info = current }) { Icon(Icons.Outlined.Info, "Details", tint = Color.White) }
             }
-            Row(
-                Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color.Black.copy(alpha = 0.5f))
-                    .navigationBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            // Expressive floating toolbar: the main action (Edit) is a filled rounded square,
+            // the others are tonal circles, all in one raised pill.
+            com.tamimrijan.camora.ui.theme.FloatingToolbar(
+                Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 22.dp),
+                container = Color(0xFF26282C).copy(alpha = 0.94f),
             ) {
-                // Share | Edit | Delete in equal halves: Edit sits exactly in the centre and the
-                // two side buttons mirror each other. Details lives in the top bar.
-                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    ViewerAction(Icons.Outlined.Share, "Share") { share(ctx, listOf(current)) }
-                }
-                FilledTonalButton(onClick = { onEdit(current.uri) }, contentPadding = PaddingValues(horizontal = 22.dp, vertical = 12.dp)) {
-                    Icon(Icons.Rounded.Edit, null, Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Edit")
-                }
-                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    ViewerAction(Icons.Outlined.Delete, "Delete") { confirm = current }
-                }
+                val tonal = Color.White.copy(alpha = 0.12f)
+                com.tamimrijan.camora.ui.theme.MorphButton(
+                    Icons.Outlined.Share, "Share", selected = false, onClick = { share(ctx, listOf(current)) },
+                    selectedContainer = tonal, selectedContent = Color.White, container = tonal, content = Color.White,
+                )
+                com.tamimrijan.camora.ui.theme.MorphButton(
+                    Icons.Rounded.Edit, "Edit", selected = true, onClick = { onEdit(current.uri) },
+                    selectedContainer = com.tamimrijan.camora.ui.theme.Accent, selectedContent = Color(0xFF0B1E44),
+                    container = tonal, content = Color.White, size = 64.dp,
+                )
+                com.tamimrijan.camora.ui.theme.MorphButton(
+                    Icons.Outlined.Delete, "Delete", selected = false, onClick = { confirm = current },
+                    selectedContainer = tonal, selectedContent = Color.White, container = tonal, content = Color.White,
+                )
             }
         }
     }
@@ -343,7 +347,7 @@ fun ViewerScreen(vm: GalleryViewModel, startIndex: Int, onBack: () -> Unit, onEd
 @Composable
 private fun ViewerAction(icon: ImageVector, label: String, onClick: () -> Unit) {
     Column(
-        Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 4.dp),
+        Modifier.pressSquish(0.88f).clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(icon, label, tint = Color.White)

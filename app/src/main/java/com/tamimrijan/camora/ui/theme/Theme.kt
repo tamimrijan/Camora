@@ -115,21 +115,32 @@ private val CameraColors = DarkColors.copy(
     primaryContainer = AccentContainer,
 )
 
+/*
+ * Material 3 Expressive typography: emphasised, heavier headlines and titles with slightly
+ * tighter tracking, so screen titles and key numbers read bold and confident.
+ */
 private val AppTypography = Typography().let { t ->
     t.copy(
-        headlineSmall = t.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
-        titleLarge = t.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+        displayLarge = t.displayLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
+        displayMedium = t.displayMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp),
+        displaySmall = t.displaySmall.copy(fontWeight = FontWeight.Bold),
+        headlineLarge = t.headlineLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp),
+        headlineMedium = t.headlineMedium.copy(fontWeight = FontWeight.Bold),
+        headlineSmall = t.headlineSmall.copy(fontWeight = FontWeight.Bold),
+        titleLarge = t.titleLarge.copy(fontWeight = FontWeight.Bold),
         titleMedium = t.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+        titleSmall = t.titleSmall.copy(fontWeight = FontWeight.SemiBold),
         labelLarge = t.labelLarge.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.2.sp),
     )
 }
 
+/* Material 3 Expressive shape scale: noticeably rounder surfaces at every size. */
 private val AppShapes = Shapes(
-    extraSmall = RoundedCornerShape(6.dp),
-    small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(24.dp),
-    extraLarge = RoundedCornerShape(32.dp),
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(20.dp),
+    large = RoundedCornerShape(28.dp),
+    extraLarge = RoundedCornerShape(40.dp),
 )
 
 /** Mode labels under the viewfinder. */

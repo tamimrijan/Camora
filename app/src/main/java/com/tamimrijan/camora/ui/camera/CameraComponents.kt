@@ -53,6 +53,10 @@ import androidx.compose.ui.unit.sp
 import com.tamimrijan.camora.camera.CameraMode
 import com.tamimrijan.camora.ui.theme.Accent
 import com.tamimrijan.camora.ui.theme.ModeLabelStyle
+import com.tamimrijan.camora.ui.theme.ExpressiveMotion
+import com.tamimrijan.camora.ui.theme.pressSquish
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import kotlin.math.abs
 import kotlin.math.sqrt
 
@@ -72,6 +76,7 @@ fun CamIcon(
         modifier
             .size(size)
             .clip(CircleShape)
+            .pressSquish(0.86f)
             .background(if (active) Accent.copy(alpha = 0.16f) else Color.Transparent)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -107,7 +112,10 @@ fun ShutterButton(busy: Boolean, progress: Float?, size: Dp = 78.dp, onClick: ()
     val haptic = LocalHapticFeedback.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) 0.9f else 1f, label = "shutterScale")
+    // Expressive: the button squishes and its centre morphs from a circle towards a rounded
+    // square while pressed, then springs back.
+    val scale by animateFloatAsState(if (pressed) 0.9f else 1f, ExpressiveMotion.bouncy(), label = "shutterScale")
+    val morph by animateFloatAsState(if (pressed) 1f else 0f, ExpressiveMotion.bouncy(), label = "shutterMorph")
     Box(
         Modifier
             .size(size)
@@ -121,7 +129,15 @@ fun ShutterButton(busy: Boolean, progress: Float?, size: Dp = 78.dp, onClick: ()
         Canvas(Modifier.fillMaxSize()) {
             val stroke = 4.dp.toPx()
             drawCircle(Color.White, radius = this.size.minDimension / 2 - stroke / 2, style = Stroke(stroke))
-            drawCircle(if (busy) Color.White.copy(alpha = 0.55f) else Color.White, radius = this.size.minDimension / 2 - stroke - 3.dp.toPx())
+            val inner = this.size.minDimension / 2 - stroke - 3.dp.toPx()
+            val side = inner * (2f - 0.18f * morph)
+            val corner = side / 2f * (1f - 0.42f * morph)
+            drawRoundRect(
+                if (busy) Color.White.copy(alpha = 0.55f) else Color.White,
+                topLeft = Offset(center.x - side / 2f, center.y - side / 2f),
+                size = Size(side, side),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(corner, corner),
+            )
             if (progress != null) {
                 drawArc(
                     Accent, startAngle = -90f, sweepAngle = 360f * progress, useCenter = false,
@@ -154,22 +170,26 @@ fun ModeSelector(modes: List<CameraMode>, selected: CameraMode, enabled: Boolean
         ) {
             items(modes) { m ->
                 val sel = m == selected
+                // Expressive: the selection pill springs in, and the label grows a touch.
+                val pill by animateFloatAsState(if (sel) 1f else 0f, ExpressiveMotion.bouncy(), label = "modePill")
                 Box(
                     Modifier
                         .width(itemW)
                         .height(40.dp)
+                        .pressSquish(0.9f)
                         .clickable(enabled = enabled) { onSelect(m) },
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         m.label.uppercase(), style = ModeLabelStyle,
-                        color = if (sel) Accent else Color.White.copy(alpha = if (enabled) 0.8f else 0.4f),
+                        color = if (sel) Color(0xFF0B1E44) else Color.White.copy(alpha = if (enabled) 0.8f else 0.4f),
                         maxLines = 1,
                         softWrap = false,
-                        modifier = if (sel) Modifier
+                        modifier = Modifier
+                            .graphicsLayer { val k = 1f + 0.06f * pill; scaleX = k; scaleY = k }
                             .clip(RoundedCornerShape(50))
-                            .background(Accent.copy(alpha = 0.14f))
-                            .padding(horizontal = 10.dp, vertical = 5.dp) else Modifier,
+                            .background(Accent.copy(alpha = pill.coerceIn(0f, 1f)))
+                            .padding(horizontal = 14.dp, vertical = 7.dp),
                     )
                 }
             }
@@ -194,9 +214,11 @@ fun ZoomChips(presets: List<Float>, current: Float, usingUltraWide: Boolean, rot
             val sel = p == active
             val label = if (sel && p >= 1f && abs(current - p) > 0.05f) "%.1f×".format(current)
             else if (p < 1f) ".6" else "${p.toInt()}" + (if (sel) "×" else "")
+            val chip by animateDpAsState(if (sel) 38.dp else 32.dp, ExpressiveMotion.bouncy(), label = "zoomChip")
             Box(
                 Modifier
-                    .size(if (sel) 38.dp else 32.dp)
+                    .size(chip)
+                    .pressSquish(0.85f)
                     .clip(CircleShape)
                     .background(if (sel) Color.Black.copy(alpha = 0.7f) else Color.Black.copy(alpha = 0.45f))
                     .clickable { onSelect(p) },

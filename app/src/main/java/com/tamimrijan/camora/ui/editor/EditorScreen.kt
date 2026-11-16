@@ -367,16 +367,16 @@ fun EditorScreen(vm: EditorViewModel, uri: Uri, onBack: () -> Unit) {
                         }
                     }
                 }
-                NavigationBar(containerColor = Color(0xFF1A1B20), modifier = Modifier.navigationBarsPadding().height(72.dp)) {
+                // Expressive floating toolbar: the active tool morphs into a filled pill with its name.
+                com.tamimrijan.camora.ui.theme.FloatingToolbar(
+                    Modifier.navigationBarsPadding().padding(top = 6.dp, bottom = 14.dp),
+                    container = Color(0xFF26282C),
+                ) {
                     EditTab.entries.forEachIndexed { i, t ->
-                        NavigationBarItem(
-                            selected = tab == i, onClick = { tab = i },
-                            icon = { Icon(t.icon, t.label) }, label = { Text(t.label) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color(0xFF002E6A), indicatorColor = Accent,
-                                unselectedIconColor = Color.White.copy(alpha = 0.7f), unselectedTextColor = Color.White.copy(alpha = 0.7f),
-                                selectedTextColor = Accent,
-                            ),
+                        com.tamimrijan.camora.ui.theme.MorphButton(
+                            t.icon, t.label, selected = tab == i, onClick = { tab = i },
+                            selectedContainer = Accent, selectedContent = Color(0xFF0B1E44),
+                            container = Color.Transparent, content = Color.White.copy(alpha = 0.8f), size = 52.dp,
                         )
                     }
                 }

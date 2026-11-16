@@ -58,6 +58,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import com.tamimrijan.camora.data.UpdateState
+import com.tamimrijan.camora.ui.theme.pressSquish
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -146,14 +147,21 @@ fun SettingsScreen(onBack: () -> Unit, onOpenReport: () -> Unit) {
                     title = { Text("Settings") },
                     navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
                 )
-                PrimaryTabRow(selectedTabIndex = pager.currentPage) {
-                    SettingsTab.entries.forEachIndexed { i, t ->
-                        Tab(
-                            selected = pager.currentPage == i,
-                            onClick = { scope.launch { pager.animateScrollToPage(i) } },
-                            icon = { Icon(t.icon, null, Modifier.size(20.dp)) },
-                            text = { Text(t.label, maxLines = 1, fontSize = 12.sp) },
-                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                // Expressive tabs: big pill chips, the active one filled, scrolling to stay in view.
+                val tabs = androidx.compose.foundation.lazy.rememberLazyListState()
+                androidx.compose.runtime.LaunchedEffect(pager.currentPage) { tabs.animateScrollToItem(pager.currentPage) }
+                val cs = MaterialTheme.colorScheme
+                androidx.compose.foundation.lazy.LazyRow(
+                    state = tabs,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(SettingsTab.entries.size) { i ->
+                        val t = SettingsTab.entries[i]
+                        com.tamimrijan.camora.ui.theme.PillChip(
+                            t.label, pager.currentPage == i, { scope.launch { pager.animateScrollToPage(i) } },
+                            selectedContainer = cs.primary, selectedContent = cs.onPrimary,
+                            content = cs.onSurfaceVariant, container = cs.surfaceContainerHigh, icon = t.icon,
                         )
                     }
                 }
@@ -320,7 +328,7 @@ private fun LazyListScope.aboutTab(ctx: Context) {
     item {
         val app = ctx.applicationContext as CamoraApp
         val scope = rememberCoroutineScope()
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer), shape = RoundedCornerShape(24.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer), shape = RoundedCornerShape(28.dp)) {
             AboutLink(Icons.Rounded.AutoAwesome, "Welcome tour", "See everything Camora can do") {
                 scope.launch { app.settings.update { it.copy(onboardingDone = false) } }
             }
@@ -371,8 +379,8 @@ private fun AboutHero() {
             }
             Spacer(Modifier.height(12.dp))
             Text(
-                "Camora", color = cs.onSurface, fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.headlineLarge, letterSpacing = 0.5.sp,
+                "Camora", color = cs.onSurface, fontWeight = FontWeight.ExtraBold,
+                style = MaterialTheme.typography.displayMedium, letterSpacing = (-1).sp,
             )
             Spacer(Modifier.height(4.dp))
             Text(
@@ -430,14 +438,14 @@ private fun UpdateCard() {
         is UpdateState.Ready -> "Ready to install" to "Version ${s.info.version} is downloaded"
         is UpdateState.Failed -> (if (s.info == null) "Could not check" else "Download stopped") to s.message
     }
-    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainer), shape = RoundedCornerShape(24.dp)) {
+    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainer), shape = RoundedCornerShape(28.dp)) {
         Column(Modifier.fillMaxWidth().padding(20.dp)) {
             Text("UPDATES", style = MaterialTheme.typography.labelMedium, color = cs.primary, letterSpacing = 1.5.sp)
             Spacer(Modifier.height(14.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(44.dp).clip(CircleShape).background(cs.primaryContainer), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(cs.primaryContainer), contentAlignment = Alignment.Center) {
                     when (st) {
-                        UpdateState.Checking -> CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.5.dp, color = cs.onPrimaryContainer)
+                        UpdateState.Checking -> com.tamimrijan.camora.ui.theme.WavyCircularProgress(null, Modifier.size(32.dp), color = cs.onPrimaryContainer, stroke = 2.5.dp)
                         else -> Icon(
                             when (st) {
                                 UpdateState.UpToDate -> Icons.Rounded.CheckCircle
@@ -450,13 +458,13 @@ private fun UpdateCard() {
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(title, style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
+                    Text(title, style = MaterialTheme.typography.titleLarge, color = cs.onSurface)
                     Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
                 }
             }
             (st as? UpdateState.Downloading)?.let { d ->
                 Spacer(Modifier.height(14.dp))
-                LinearProgressIndicator(progress = { d.progress }, modifier = Modifier.fillMaxWidth().clip(CircleShape))
+                com.tamimrijan.camora.ui.theme.WavyLinearProgress(d.progress, Modifier.fillMaxWidth(), color = cs.primary)
             }
             (st as? UpdateState.Available)?.info?.notes?.takeIf { it.isNotBlank() }?.let { notes ->
                 Spacer(Modifier.height(12.dp))
@@ -480,7 +488,7 @@ private fun UpdateCard() {
                 UpdateState.UpToDate -> Triple("Check again", { up.check() }, true)
                 UpdateState.Idle -> Triple("Check for updates", { up.check() }, true)
             }
-            Button(onClick = action, enabled = enabled, modifier = Modifier.fillMaxWidth().height(50.dp)) { Text(label) }
+            Button(onClick = action, enabled = enabled, modifier = Modifier.fillMaxWidth().height(56.dp).pressSquish(0.96f)) { Text(label, style = MaterialTheme.typography.titleSmall) }
             Spacer(Modifier.height(10.dp))
             Text(
                 "Camora connects to GitHub only when you tap this button.",
@@ -495,7 +503,7 @@ private fun UpdateCard() {
 @Composable
 private fun AboutCreator(ctx: Context) {
     val cs = MaterialTheme.colorScheme
-    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainer), shape = RoundedCornerShape(24.dp)) {
+    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainer), shape = RoundedCornerShape(28.dp)) {
         Column(Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 6.dp)) {
             Text(
                 "CREATED BY", style = MaterialTheme.typography.labelMedium, color = cs.primary,
@@ -539,7 +547,7 @@ private fun AboutLink(icon: ImageVector, title: String, subtitle: String, onClic
         supportingContent = { Text(subtitle) },
         trailingContent = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, Modifier.size(18.dp), tint = cs.onSurfaceVariant) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = Modifier.clickable(onClick = onClick).padding(horizontal = 4.dp),
+        modifier = Modifier.pressSquish(0.97f).clickable(onClick = onClick).padding(horizontal = 4.dp),
     )
 }
 
@@ -548,7 +556,7 @@ private fun AboutLink(icon: ImageVector, title: String, subtitle: String, onClic
 @Composable
 private fun AboutTech() {
     val cs = MaterialTheme.colorScheme
-    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainer), shape = RoundedCornerShape(24.dp)) {
+    Card(colors = CardDefaults.cardColors(containerColor = cs.surfaceContainer), shape = RoundedCornerShape(28.dp)) {
         Column(Modifier.fillMaxWidth().padding(20.dp)) {
             Text("BUILT WITH", style = MaterialTheme.typography.labelMedium, color = cs.primary, letterSpacing = 1.5.sp)
             Spacer(Modifier.height(14.dp))
@@ -583,7 +591,7 @@ private fun openLink(ctx: Context, url: String) {
 private fun Group(title: String, content: @Composable () -> Unit) {
     Column {
         Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 12.dp, bottom = 8.dp))
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer), shape = RoundedCornerShape(24.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer), shape = RoundedCornerShape(28.dp)) {
             Column(Modifier.padding(vertical = 4.dp)) { content() }
         }
     }
